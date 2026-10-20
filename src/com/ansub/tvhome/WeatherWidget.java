@@ -72,8 +72,9 @@ final class WeatherWidget extends LinearLayout {
         weatherIcon = new ImageView(context);
         weatherIcon.setImageDrawable(new WeatherGlyph(-1, true));
         weatherIcon.setContentDescription("Weather condition");
-        LinearLayout.LayoutParams iconParams = new LinearLayout.LayoutParams(size(78, scale), size(78, scale));
-        iconParams.rightMargin = size(16, scale);
+        weatherIcon.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        LinearLayout.LayoutParams iconParams = new LinearLayout.LayoutParams(size(104, scale), size(104, scale));
+        iconParams.rightMargin = size(12, scale);
         stats.addView(weatherIcon, iconParams);
         degrees = line(context, "--°C", 60, Color.WHITE, scale);
         degrees.setGravity(Gravity.END);
@@ -120,10 +121,12 @@ final class WeatherWidget extends LinearLayout {
             int cachedCode = cache.getInt("code", -1);
             description.setText(label(cachedCode) + " · saved");
             weatherIcon.setImageDrawable(new WeatherGlyph(cachedCode, cache.getBoolean("day", true)));
+            weatherIcon.setContentDescription(label(cachedCode));
         } else {
             degrees.setText("--°C");
             description.setText("Weather unavailable");
             weatherIcon.setImageDrawable(new WeatherGlyph(-1, true));
+            weatherIcon.setContentDescription("Weather unavailable");
         }
     }
 
@@ -179,6 +182,7 @@ final class WeatherWidget extends LinearLayout {
                             degrees.setText(String.format(Locale.US, "%.0f°C", result));
                             description.setText(label(code));
                             weatherIcon.setImageDrawable(new WeatherGlyph(code, daytime));
+                            weatherIcon.setContentDescription(label(code));
                         } else {
                             showCached();
                         }
