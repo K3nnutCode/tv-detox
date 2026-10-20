@@ -342,31 +342,49 @@ public final class HybridActivity extends Activity {
             String label = pkg;
             try { label = pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString(); }
             catch (Exception ignored) { }
-            // Prefer Android TV/Leanback BANNERS. These already contain the
-            // logo / wordmark in a landscape shape, as in the approved design.
+            // Known apps use our full-bleed, fitted TV art. Their built-in
+            // banners have baked-in white margins or small square icons on TCL.
+            // Only unknown apps use their native Leanback banner first.
+            final int fittedStyle = fittedTvStyle(pkg, label);
             Drawable banner = null;
-            try { banner = pm.getActivityBanner(intent); } catch (Exception ignored) { }
-            if (banner == null) {
-                try { banner = pm.getApplicationBanner(pkg); } catch (Exception ignored) { }
-            }
             Drawable icon = null;
-            if (banner == null) {
-                try { icon = pm.getApplicationIcon(pkg); } catch (Exception ignored) { }
-                if (icon == null) {
-                    try { icon = pm.getActivityIcon(intent); } catch (Exception ignored) { }
+            if (fittedStyle == 0) {
+                try { banner = pm.getActivityBanner(intent); } catch (Exception ignored) { }
+                if (banner == null) {
+                    try { banner = pm.getApplicationBanner(pkg); } catch (Exception ignored) { }
+                }
+                if (banner == null) {
+                    try { icon = pm.getApplicationIcon(pkg); } catch (Exception ignored) { }
+                    if (icon == null) {
+                        try { icon = pm.getActivityIcon(intent); } catch (Exception ignored) { }
+                    }
                 }
             }
-            addDockTile(dock, pkg, label, banner, icon,
+            addDockTile(dock, pkg, label, fittedStyle, banner, icon,
                     () -> { intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); startActivity(intent); });
         }
-        addDockTile(dock, "inputs", "Inputs", null, null, this::openFirstTvInput);
-        addDockTile(dock, "settings", "Settings", null, null,
+        addDockTile(dock, "inputs", "Inputs", 0, null, null, this::openFirstTvInput);
+        addDockTile(dock, "settings", "Settings", 0, null, null,
                 () -> startActivity(new Intent(Settings.ACTION_SETTINGS)));
     }
 
-    /** TV-native 16:9 banners first; a custom horizontal branded panel otherwise. */
+    /** Known apps get crafted 16:9 TV branding; no mobile icons or tiny banners. */
+    private int fittedTvStyle(String pkg, String label) {
+        String name = label == null ? "" : label.toLowerCase(Locale.US);
+        String id = pkg == null ? "" : pkg.toLowerCase(Locale.US);
+        if (YOUTUBE.equals(pkg) || "youtube".equals(name)) return TvDockArt.YOUTUBE;
+        if (STREMIO.equals(pkg) || "stremio".equals(name)) return TvDockArt.STREMIO;
+        if ("com.android.vending".equals(pkg) || name.contains("play store")
+                || name.equals("google play")) return TvDockArt.PLAY_STORE;
+        if (name.contains("quick panel") || id.contains("quickpanel")
+                || id.contains("quick_panel")) return TvDockArt.QUICK_PANEL;
+        return 0;
+    }
+
+    /** TV landscape brand card, system glyph, or native banner fallback. */
     private void addDockTile(LinearLayout dock, String pkg, String label,
-                             Drawable banner, Drawable appIcon, Runnable activate) {
+                             int fittedStyle, Drawable banner, Drawable appIcon,
+                             Runnable activate) {
         final LinearLayout tile = new LinearLayout(this);
         tile.setOrientation(LinearLayout.HORIZONTAL);
         tile.setGravity(Gravity.CENTER);
@@ -379,14 +397,22 @@ public final class HybridActivity extends Activity {
         tile.setTag(pkg);
         tile.setBackground(dockSurface(pkg, false));
 
-        if (banner != null) {
-            // Standard Android TV banners have landscape proportions.
-            // FIT_CENTER shows the complete banner, including any native wordmark.
+        if (fittedStyle != 0) {
+            // Near edge-to-edge, branded landscape graphic matched to tile
+            // proportions. Small inset leaves visible blue focus border.
+            ImageView fitted = new ImageView(this);
+            fitted.setImageDrawable(new TvDockArt(fittedStyle));
+            fitted.setScaleType(ImageView.ScaleType.FIT_XY);
+            fitted.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+            tile.setPadding(px(3), px(3), px(3), px(3));
+            tile.addView(fitted, new LinearLayout.LayoutParams(-1, -1));
+        } else if (banner != null) {
+            // Native TV banners for other apps, not enormous mobile icons.
             ImageView artwork = new ImageView(this);
             artwork.setImageDrawable(banner);
-            artwork.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            artwork.setScaleType(ImageView.ScaleType.CENTER_CROP);
             artwork.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-            tile.setPadding(px(6), px(5), px(6), px(5));
+            tile.setPadding(px(3), px(3), px(3), px(3));
             tile.addView(artwork, new LinearLayout.LayoutParams(-1, -1));
         } else if ("inputs".equals(pkg) || "settings".equals(pkg)) {
             // These are system controls, not app logos: simple TV-style glyphs.
@@ -458,7 +484,7 @@ public final class HybridActivity extends Activity {
         dock.addView(tile, tp);
     }
 
-    /** A subtle gradient tile; branding comes from the installed app icon. */
+    /** Dark glossy backing and bright TV-remote selection outline. */
     private GradientDrawable dockSurface(String pkg, boolean focused) {
         int top = 0xEA26354D;
         int bottom = 0xE5172236;
