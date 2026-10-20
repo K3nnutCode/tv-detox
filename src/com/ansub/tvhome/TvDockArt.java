@@ -141,6 +141,28 @@ final class TvDockArt extends Drawable {
         word(c, "stremio", 104, 79, 35, false, Color.WHITE);
     }
 
+    private void sweep(Canvas c) {
+        // Wide, brand-coloured abstract ribbons kept away from the wordmark.
+        p.reset(); p.setAntiAlias(true);
+        Path blue = new Path();
+        blue.moveTo(126, 0);
+        blue.cubicTo(168, 34, 206, 6, 260, 36);
+        blue.lineTo(260, 0); blue.close();
+        p.setColor(0xA7246BDD); c.drawPath(blue, p);
+
+        Path yellow = new Path();
+        yellow.moveTo(200, 136);
+        yellow.cubicTo(220, 101, 241, 122, 260, 91);
+        yellow.lineTo(260, 136); yellow.close();
+        p.setColor(0xADFFC52A); c.drawPath(yellow, p);
+
+        Path red = new Path();
+        red.moveTo(228, 136);
+        red.quadTo(248, 113, 260, 124);
+        red.lineTo(260, 136); red.close();
+        p.setColor(0xB9ED4F4B); c.drawPath(red, p);
+    }
+
     private void playStoreLogo(Canvas c) {
         // Multicolour triangular Play mark, with landscape-safe wordmark.
         polygon(c, 20, 38, 20, 101, 53, 68, 0xFF34B7E4);
