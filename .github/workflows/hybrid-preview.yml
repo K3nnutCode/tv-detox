@@ -10,6 +10,7 @@ on:
       - 'tests/com/ansub/tvhome/PrayerSchedule2026Test.java'
       - 'src/com/ansub/tvhome/TvDockArt.java'
       - 'src/com/ansub/tvhome/HybridSessionListener.java'
+      - 'src/com/ansub/tvhome/StremioSnapshotStore.java'
       - 'AndroidManifest-hybrid-preview.xml'
       - 'build-hybrid-preview.sh'
       - '.github/workflows/hybrid-preview.yml'
