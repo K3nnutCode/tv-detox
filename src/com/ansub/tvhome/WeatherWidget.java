@@ -9,6 +9,7 @@ import android.os.Looper;
 import android.util.Log;
 import android.util.TypedValue;
 import android.view.Gravity;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
@@ -32,7 +33,7 @@ final class WeatherWidget extends LinearLayout {
     private static final String TAG = "HomePhotosWeather";
     private static final String ENDPOINT = "https://api.open-meteo.com/v1/forecast"
             + "?latitude=4.9031&longitude=114.9398"
-            + "&current=temperature_2m,weather_code"
+            + "&current=temperature_2m,weather_code,is_day"
             + "&timezone=Asia%2FBrunei";
     private static final long REFRESH_MS = 30 * 60 * 1000L;
     private static final String PREFS = "homePhotosWeather";
@@ -40,6 +41,7 @@ final class WeatherWidget extends LinearLayout {
     private final Handler ui = new Handler(Looper.getMainLooper());
     private final TextView degrees;
     private final TextView description;
+    private final ImageView weatherIcon;
     private final SharedPreferences cache;
     private boolean started;
     private int generation;
@@ -60,9 +62,23 @@ final class WeatherWidget extends LinearLayout {
 
         TextView city = line(context, "BANDAR SERI BEGAWAN", 19, 0xD1FFFFFF, scale);
         addView(city);
+        // Center the condition glyph beside the temperature; keep all text right-aligned.
+        LinearLayout stats = new LinearLayout(context);
+        stats.setOrientation(HORIZONTAL);
+        stats.setGravity(Gravity.CENTER_VERTICAL | Gravity.RIGHT);
+        LinearLayout.LayoutParams statsParams = new LinearLayout.LayoutParams(-1, -2);
+        statsParams.topMargin = size(5, scale);
+        addView(stats, statsParams);
+        weatherIcon = new ImageView(context);
+        weatherIcon.setImageDrawable(new WeatherGlyph(-1, true));
+        weatherIcon.setContentDescription("Weather condition");
+        weatherIcon.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        LinearLayout.LayoutParams iconParams = new LinearLayout.LayoutParams(size(104, scale), size(104, scale));
+        iconParams.rightMargin = size(12, scale);
+        stats.addView(weatherIcon, iconParams);
         degrees = line(context, "--°C", 60, Color.WHITE, scale);
         degrees.setGravity(Gravity.END);
-        addView(degrees);
+        stats.addView(degrees);
         description = line(context, "Weather unavailable", 24, 0xEEFFFFFF, scale);
         addView(description);
         TextView attribution = line(context, "Weather: Open-Meteo.com", 16, 0xB0FFFFFF, scale);
@@ -102,10 +118,15 @@ final class WeatherWidget extends LinearLayout {
     private void showCached() {
         if (cache.contains("temp")) {
             degrees.setText(String.format(Locale.US, "%.0f°C", cache.getFloat("temp", 0f)));
-            description.setText(label(cache.getInt("code", -1)) + " · saved");
+            int cachedCode = cache.getInt("code", -1);
+            description.setText(label(cachedCode) + " · saved");
+            weatherIcon.setImageDrawable(new WeatherGlyph(cachedCode, cache.getBoolean("day", true)));
+            weatherIcon.setContentDescription(label(cachedCode));
         } else {
             degrees.setText("--°C");
             description.setText("Weather unavailable");
+            weatherIcon.setImageDrawable(new WeatherGlyph(-1, true));
+            weatherIcon.setContentDescription("Weather unavailable");
         }
     }
 
@@ -114,6 +135,7 @@ final class WeatherWidget extends LinearLayout {
             @Override public void run() {
                 double temp = Double.NaN;
                 int weatherCode = -1;
+                boolean isDay = true;
                 try {
                     HttpsURLConnection connection = (HttpsURLConnection) new URL(ENDPOINT).openConnection();
                     try {
@@ -137,6 +159,7 @@ final class WeatherWidget extends LinearLayout {
                         JSONObject current = new JSONObject(body.toString()).getJSONObject("current");
                         temp = current.getDouble("temperature_2m");
                         weatherCode = current.getInt("weather_code");
+                        isDay = current.optInt("is_day", 1) == 1;
                         if (Double.isNaN(temp) || Double.isInfinite(temp) || temp < -100 || temp > 100) {
                             throw new java.io.IOException("Invalid temperature");
                         }
@@ -149,14 +172,17 @@ final class WeatherWidget extends LinearLayout {
                 }
                 final double result = temp;
                 final int code = weatherCode;
+                final boolean daytime = isDay;
                 ui.post(new Runnable() {
                     @Override public void run() {
                         if (!started || token != generation) return;
                         if (!Double.isNaN(result)) {
                             cache.edit().putFloat("temp", (float) result)
-                                    .putInt("code", code).apply();
+                                    .putInt("code", code).putBoolean("day", daytime).apply();
                             degrees.setText(String.format(Locale.US, "%.0f°C", result));
                             description.setText(label(code));
+                            weatherIcon.setImageDrawable(new WeatherGlyph(code, daytime));
+                            weatherIcon.setContentDescription(label(code));
                         } else {
                             showCached();
                         }

@@ -418,6 +418,27 @@ If the grant says **"has not requested permission"**, the TV is still running an
 
 **Preserve your existing home screen:** Install a rebuild only with the **same signing key** as the installed app (keep the original `key.jks` / release keystore). Use `adb install -r out/tvhome.apk` for an in-place update. If Android reports `INSTALL_FAILED_UPDATE_INCOMPATIBLE`, **stop**: do not uninstall your home screen or run an install script that automatically uninstalls it, as that may reset app preferences and leave the TV without its configured Home app.
 
+### Safe visual preview (keeps your existing Home Photos installation)
+
+The **Home Photos Preview** app uses a third package, `com.ansub.tvhome.photos.preview`, so it can be installed alongside the original offline Home (`com.ansub.tvhome`) and the existing Home Photos (`com.ansub.tvhome.photos`). It is for testing the condition-specific weather icons and unified translucent app tiles with the same shared wallpaper folder.
+
+1. Open the GitHub Actions run for this branch and download its **`home-photos-preview-apk`** artifact. Extract `home-photos-preview.apk`.
+2. Install only the preview APK with `adb install -r home-photos-preview.apk` (use the correct local file path).
+3. Open it without changing the default Home app:
+
+```sh
+adb shell pm grant com.ansub.tvhome.photos.preview android.permission.READ_EXTERNAL_STORAGE
+adb shell am start -n com.ansub.tvhome.photos.preview/com.ansub.tvhome.MainActivity
+```
+
+To return immediately to the current Home Photos, use:
+
+```sh
+adb shell am start -n com.ansub.tvhome.photos/com.ansub.tvhome.MainActivity
+```
+
+Do **not** change your default Home to the preview. The CI-produced preview APK has temporary signing; later test builds may not install over it. You can uninstall **only** the preview if needed, after returning to the working Home Photos. Never uninstall `com.ansub.tvhome` or `com.ansub.tvhome.photos` for this visual test.
+
 ## Home Photos: separate photo launcher with live weather
 
 **Home Photos** is a second Android TV home app, separate from the existing `com.ansub.tvhome`. Its package is `com.ansub.tvhome.photos`. It preserves the slideshow, rounded clock box, app tiles and settings shortcuts and adds a small weather panel at the upper-right.
