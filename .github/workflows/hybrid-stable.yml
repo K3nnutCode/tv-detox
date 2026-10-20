@@ -112,27 +112,15 @@ jobs:
             if adb shell cat /sdcard/v1-focus.xml | grep -qE 'content-desc="Hybrid dock: [^"]*"[^>]*focused="true"'; then exit 1; fi
             adb shell input keyevent KEYCODE_DPAD_DOWN
             adb exec-out screencap -p > hybrid-tv-v1-emulator.png
-            # Emulator-only HOME rehearsal — never touches the TCL.
-            # Dump role and resolution state because emulator TV firmware may
-            # leave its own launcher visually foreground after HOME selection.
-            adb shell cmd package set-home-activity com.ansub.tvhome.hybrid.stable/com.ansub.tvhome.HybridActivity > set-home.txt 2>&1
-            cat set-home.txt
-            adb shell cmd shortcut get-default-launcher || true
-            adb shell cmd role get-role-holders android.app.role.HOME || true
-            adb shell cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.HOME || true
+            # Android TV emulator registers the selected default but its
+            # privileged Google TV launcher can remain the foreground HOME UI.
+            # Assert the preference/role target, not OEM visual routing.
+            # TCL HOME routing is a separate required real-device gate.
+            adb shell cmd package set-home-activity com.ansub.tvhome.hybrid.stable/com.ansub.tvhome.HybridActivity | grep -F 'Success'
+            adb shell cmd shortcut get-default-launcher | grep -F 'com.ansub.tvhome.hybrid.stable/com.ansub.tvhome.HybridActivity'
             adb shell input keyevent KEYCODE_HOME
-            sleep 6
+            sleep 3
             adb shell dumpsys window | grep mCurrentFocus || true
-            # If package-default selection didn't activate HOME, separately
-            # exercise the standard Android RoleManager mechanism in emulator.
-            if ! adb shell dumpsys window | grep mCurrentFocus | grep -q com.ansub.tvhome.hybrid.stable; then
-              adb shell cmd role add-role-holder android.app.role.HOME com.ansub.tvhome.hybrid.stable
-              adb shell input keyevent KEYCODE_HOME
-              sleep 6
-              adb shell dumpsys window | grep mCurrentFocus || true
-              adb shell cmd role get-role-holders android.app.role.HOME || true
-            fi
-            adb shell dumpsys window | grep mCurrentFocus | grep -q com.ansub.tvhome.hybrid.stable
       - uses: actions/upload-artifact@v4
         if: always()
         with:
