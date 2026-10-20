@@ -1,6 +1,12 @@
 # Stremio session compatibility test (Android TV 11)
 
 This is a **temporary, read-only diagnostic**, not a new home screen.
+Version **1.1** adds TCL/Android TV remote navigation: a visible yellow focus border,
+LEFT/UP selects **Refresh**, RIGHT/DOWN selects **Notification access settings**,
+and OK/Enter activates the selected button. HOME and BACK remain normal.
+The first test APK used an ephemeral signing key, so **uninstall only
+`com.ansub.stremioprobe` before installing the new test**; do not touch
+either Home Photos or Stremio.
 Package: `com.ansub.stremioprobe`. Its separate signing key is disposable.
 
 The app displays only `com.stremio.one` media-session information:
@@ -26,9 +32,20 @@ Turn it off immediately after testing, then uninstall the test app.
 
 ```sh
 adb connect 192.168.68.55:5555
+adb shell am start -n com.ansub.tvhome.photos.stable/com.ansub.tvhome.MainActivity
+# Remove ONLY the old standalone diagnostic. It was signed with a throwaway key.
+adb uninstall com.ansub.stremioprobe
 adb install "$HOME/Downloads/stremio-session-test.apk"
 adb shell am start -n com.ansub.stremioprobe/.MainActivity
 ```
+
+If installation fails or the diagnostic doesn't open, stop and paste the terminal
+output. The original TV Home app, permanent Home Photos app, CleanYourTV and
+Stremio are unaffected.
+
+Use the remote's RIGHT button to highlight notification-access settings;
+the highlighted button has a yellow border and a text focus indicator.
+Press OK to open it. LEFT goes back to Refresh.
 
 3. Choose **Notification access settings** using your TV remote and
    enable **Stremio Session Test access**. This is **opt-in** and cannot
