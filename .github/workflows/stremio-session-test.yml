@@ -1,0 +1,87 @@
+name: Stremio Media Session Diagnostic
+
+on:
+  pull_request:
+    paths:
+      - 'stremio-probe/**'
+      - 'build-stremio-probe.sh'
+      - '.github/workflows/stremio-session-test.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Android SDK 34
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-34" "build-tools;34.0.0" >/dev/null
+      - name: Build test app (no secrets)
+        run: sh build-stremio-probe.sh
+      - name: Verify APK permissions and package
+        run: |
+          set -eu
+          APK=out-stremio-probe/stremio-session-test.apk
+          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify "$APK"
+          "$ANDROID_HOME/build-tools/34.0.0/aapt" dump badging "$APK" |
+            grep -F "package: name='com.ansub.stremioprobe'"
+          "$ANDROID_HOME/build-tools/34.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml > /tmp/stremio-probe-manifest.txt
+          grep -q 'android.permission.BIND_NOTIFICATION_LISTENER_SERVICE' /tmp/stremio-probe-manifest.txt
+          grep -q 'android.intent.category.LEANBACK_LAUNCHER' /tmp/stremio-probe-manifest.txt
+          if grep -q 'android.intent.category.HOME' /tmp/stremio-probe-manifest.txt; then
+            echo 'Unsafe: the diagnostic registers as a Home launcher.' >&2
+            exit 1
+          fi
+          if grep -q 'android.permission.INTERNET' /tmp/stremio-probe-manifest.txt; then
+            echo 'Unsafe: diagnostic app can connect to internet.' >&2
+            exit 1
+          fi
+          echo 'PASS: signed Android 11 test APK, offline and cannot become Home.'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stremio-session-test-apk
+          path: out-stremio-probe/stremio-session-test.apk
+          retention-days: 14
+
+  android-tv-smoke-test:
+    needs: build-and-verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: stremio-session-test-apk
+          path: out-stremio-probe
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+      - name: Open diagnostics on Android TV 11
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: android-tv
+          arch: x86
+          profile: tv_1080p
+          disable-animations: true
+          script: |
+            adb install out-stremio-probe/stremio-session-test.apk
+            adb shell am start -W -n com.ansub.stremioprobe/.MainActivity
+            adb shell pm path com.ansub.stremioprobe | grep -q base.apk
+            adb shell dumpsys window | grep mCurrentFocus | grep -q com.ansub.stremioprobe
+            # D-pad should move focus between two large TV-remote buttons.
+            adb shell input keyevent KEYCODE_DPAD_RIGHT
+            adb shell uiautomator dump /sdcard/stremio-tv-focus.xml >/dev/null
+            adb shell cat /sdcard/stremio-tv-focus.xml | grep -E 'text="Notification access settings"[^>]*focused="true"'
+            adb shell input keyevent KEYCODE_DPAD_LEFT
+            adb shell uiautomator dump /sdcard/stremio-tv-focus.xml >/dev/null
+            adb shell cat /sdcard/stremio-tv-focus.xml | grep -E 'text="Refresh Stremio status"[^>]*focused="true"'
+            adb shell input keyevent KEYCODE_DPAD_CENTER
