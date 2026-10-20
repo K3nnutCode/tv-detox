@@ -360,7 +360,8 @@ public class MainActivity extends Activity {
             try { label = pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString(); } catch (Exception ignored) {}
             // Apps without a TV banner get a plain tile with their normal icon.
             Drawable icon = null;
-            if (banner == null) try { icon = pm.getApplicationIcon(pkg); } catch (Exception ignored) {}
+            if (banner == null || "com.ansub.tvhome.photos".equals(getPackageName()))
+                try { icon = pm.getApplicationIcon(pkg); } catch (Exception ignored) {}
             int i = rowApps.size();
             rowApps.add(pkg);
             addTile(root, pkg, label, banner, null, icon, gridX(i), gridY(i), w, h);
@@ -388,26 +389,30 @@ public class MainActivity extends Activity {
     private void addTile(ViewGroup parent, final String key, String label, Drawable banner, int[] lineIcon, Drawable appIcon,
                          int x, int y, int w, int h) {
         FrameLayout card = new FrameLayout(this);
+        // Home Photos uses one consistent, translucent tile design so app banners don't compete
+        // with the family photographs. The original offline launcher retains its old styling.
+        final boolean photosEdition = "com.ansub.tvhome.photos".equals(getPackageName());
+        final boolean showBanner = banner != null && !photosEdition;
         final GradientDrawable bg = new GradientDrawable();
         bg.setCornerRadius(px(RADIUS));
-        if (banner != null) {
+        if (showBanner) {
             bg.setColor(0xFF1E1A1C);
             ImageView iv = new ImageView(this);
             iv.setImageDrawable(fit(banner, w, h));
             card.addView(iv, new FrameLayout.LayoutParams(-1, -1));
         } else {
             // Quiet "glass" tile: icon above label.
-            bg.setColor(0x13FFFFFF);
-            bg.setStroke(Math.max(1, px(2)), 0x17FFFFFF);
+            bg.setColor(photosEdition ? 0xB51A2330 : 0x13FFFFFF);
+            bg.setStroke(Math.max(1, px(2)), photosEdition ? 0x66FFFFFF : 0x17FFFFFF);
             LinearLayout inner = new LinearLayout(this);
             inner.setOrientation(LinearLayout.VERTICAL);
             inner.setGravity(Gravity.CENTER);
             ImageView iv = new ImageView(this);
-            int size = lineIcon != null ? px(44) : px(64);
+            int size = lineIcon != null ? px(48) : photosEdition ? px(74) : px(64);
             if (lineIcon != null) iv.setImageDrawable(new LineIcon(lineIcon));
             else if (appIcon != null) iv.setImageDrawable(fit(appIcon, size, size));
             inner.addView(iv, new LinearLayout.LayoutParams(size, size));
-            TextView t = text(px(24), 0xE0FFFFFF, regular);
+            TextView t = text(px(photosEdition ? 25 : 24), 0xF1FFFFFF, regular);
             t.setText(label);
             t.setSingleLine(true);
             t.setEllipsize(android.text.TextUtils.TruncateAt.END);
@@ -424,18 +429,23 @@ public class MainActivity extends Activity {
         card.setTag(key);
 
         // Banner tiles show their name underneath when focused.
-        final TextView caption = banner == null ? null : text(px(24), Color.WHITE, regular);
+        final TextView caption = showBanner ? text(px(24), Color.WHITE, regular) : null;
         if (caption != null) {
             caption.setText(label);
             caption.setGravity(Gravity.CENTER_HORIZONTAL);
             caption.setVisibility(View.INVISIBLE);
         }
 
-        final boolean glass = banner == null;
+        final boolean glass = !showBanner;
         card.setOnFocusChangeListener((v, has) -> {
             if (has) focusedKey = key;
-            if (glass) bg.setColor(has ? 0x38FFFFFF : 0x13FFFFFF);
-            v.animate().scaleX(has ? 1.1f : 1f).scaleY(has ? 1.1f : 1f).translationZ(has ? px(26) : 0)
+            if (photosEdition) {
+                bg.setColor(has ? 0xE035455A : 0xB51A2330);
+                bg.setStroke(Math.max(1, px(2)), has ? 0xF2FFFFFF : 0x66FFFFFF);
+            } else if (glass) bg.setColor(has ? 0x38FFFFFF : 0x13FFFFFF);
+            float focusedScale = photosEdition ? 1.07f : 1.1f;
+            v.animate().scaleX(has ? focusedScale : 1f).scaleY(has ? focusedScale : 1f)
+                    .translationZ(has ? px(26) : 0)
                     .setDuration(140).withLayer().start();
             if (caption != null) caption.setVisibility(has ? View.VISIBLE : View.INVISIBLE);
         });
