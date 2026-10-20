@@ -6,6 +6,7 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.ColorFilter;
 import android.graphics.Matrix;
+import android.graphics.LinearGradient;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.PixelFormat;
@@ -31,6 +32,7 @@ final class FrostedBackdrop extends Drawable {
     private final float radius;
     private final Paint blurPaint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
     private final Paint tint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint sheen = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint edge = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final RectF rect = new RectF();
     private final Path clipping = new Path();
@@ -44,10 +46,10 @@ final class FrostedBackdrop extends Drawable {
         this.screenWidth = Math.max(1, screenWidth);
         this.screenHeight = Math.max(1, screenHeight);
         this.radius = radius;
-        tint.setColor(0x85131D2A); // translucent smoky blue-grey; the photo remains visible beneath
+        tint.setColor(0x60313B4E); // lighter slate tint: let the blurred photograph show through
         edge.setStyle(Paint.Style.STROKE);
         edge.setStrokeWidth(1.2f);
-        edge.setColor(0x33FFFFFF); // soft glass reflection, not a bright white tile border
+        edge.setColor(0x1AFFFFFF); // barely perceptible glass edge, not a white tile outline
     }
 
     void setBlurredPhoto(Bitmap blurred) {
@@ -81,6 +83,11 @@ final class FrostedBackdrop extends Drawable {
             canvas.drawColor(0x58334456); // fallback when photos are unavailable
         }
         canvas.drawRect(rect, tint);
+        // Pale top-to-bottom light reflection adds a frosted-glass feel without a solid grey box.
+        sheen.setShader(new LinearGradient(rect.left, rect.top, rect.left, rect.bottom,
+                0x2AFFFFFF, 0x04FFFFFF, Shader.TileMode.CLAMP));
+        canvas.drawRect(rect, sheen);
+        sheen.setShader(null);
         canvas.restoreToCount(save);
         canvas.drawRoundRect(rect.left + 0.6f, rect.top + 0.6f,
                 rect.right - 0.6f, rect.bottom - 0.6f, radius, radius, edge);
@@ -110,8 +117,8 @@ final class FrostedBackdrop extends Drawable {
             int[] first = new int[width * height], second = new int[first.length];
             tiny.getPixels(first, 0, width, 0, 0, width, height);
             for (int pass = 0; pass < 2; pass++) {
-                boxBlur(first, second, width, height, 5, true);
-                boxBlur(second, first, width, height, 5, false);
+                boxBlur(first, second, width, height, 8, true);
+                boxBlur(second, first, width, height, 8, false);
             }
             tiny.setPixels(first, 0, width, 0, 0, width, height);
             return tiny;
