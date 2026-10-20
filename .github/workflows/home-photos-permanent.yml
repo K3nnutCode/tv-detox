@@ -41,7 +41,7 @@ jobs:
           sh build-photos.sh
           "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose out-photos-stable/home-photos-stable.apk
           "$ANDROID_HOME/build-tools/34.0.0/aapt" dump badging out-photos-stable/home-photos-stable.apk |
-            grep -F 'package: name='com.ansub.tvhome.photos.stable''
+            grep -F "package: name='com.ansub.tvhome.photos.stable'"
           rm -f "$KEY_FILE"
       - uses: actions/upload-artifact@v4
         with:
