@@ -342,54 +342,106 @@ public final class HybridActivity extends Activity {
             String label = pkg;
             try { label = pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString(); }
             catch (Exception ignored) { }
-            // Prefer the installed app's launcher ICON over its TV banner.
-            // A TV banner frequently embeds the app name or wordmark, whereas
-            // the launcher icon is better suited to our deliberately icon-only dock.
-            Drawable icon = null;
-            try { icon = pm.getApplicationIcon(pkg); } catch (Exception ignored) { }
-            if (icon == null) {
-                try { icon = pm.getActivityIcon(intent); } catch (Exception ignored) { }
+            // Prefer Android TV/Leanback BANNERS. These already contain the
+            // logo / wordmark in a landscape shape, as in the approved design.
+            Drawable banner = null;
+            try { banner = pm.getActivityBanner(intent); } catch (Exception ignored) { }
+            if (banner == null) {
+                try { banner = pm.getApplicationBanner(pkg); } catch (Exception ignored) { }
             }
-            addDockTile(dock, pkg, label, icon,
+            Drawable icon = null;
+            if (banner == null) {
+                try { icon = pm.getApplicationIcon(pkg); } catch (Exception ignored) { }
+                if (icon == null) {
+                    try { icon = pm.getActivityIcon(intent); } catch (Exception ignored) { }
+                }
+            }
+            addDockTile(dock, pkg, label, banner, icon,
                     () -> { intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); startActivity(intent); });
         }
-        addDockTile(dock, "inputs", "Inputs", null, this::openFirstTvInput);
-        addDockTile(dock, "settings", "Settings", null,
+        addDockTile(dock, "inputs", "Inputs", null, null, this::openFirstTvInput);
+        addDockTile(dock, "settings", "Settings", null, null,
                 () -> startActivity(new Intent(Settings.ACTION_SETTINGS)));
     }
 
+    /** TV-native 16:9 banners first; a custom horizontal branded panel otherwise. */
     private void addDockTile(LinearLayout dock, String pkg, String label,
-                             Drawable icon, Runnable activate) {
+                             Drawable banner, Drawable appIcon, Runnable activate) {
         final LinearLayout tile = new LinearLayout(this);
-        tile.setOrientation(LinearLayout.VERTICAL);
+        tile.setOrientation(LinearLayout.HORIZONTAL);
         tile.setGravity(Gravity.CENTER);
         tile.setFocusable(true);
         tile.setFocusableInTouchMode(true);
         tile.setClickable(true);
-        // Accessible focus target; also allows a deterministic emulator TV test.
+        tile.setClipToOutline(true);
+        // Preserve names to screen readers, but never put a caption below art.
         tile.setContentDescription("Hybrid dock: " + label);
-        // A single large centered logo, no label displayed below it.
-        // The app name remains available to accessibility services on the tile.
-        tile.setPadding(px(12), px(6), px(12), px(6));
-        tile.setBackground(dockSurface(pkg, false));
         tile.setTag(pkg);
-        ImageView graphic = new ImageView(this);
-        graphic.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        graphic.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-        if (icon != null) graphic.setImageDrawable(icon);
-        else if ("inputs".equals(pkg)) graphic.setImageDrawable(new LineIcon(LineIcon.HDMI));
-        else if ("settings".equals(pkg)) graphic.setImageDrawable(new LineIcon(LineIcon.SETTINGS));
-        else graphic.setImageDrawable(new LineIcon(LineIcon.PLAY));
-        // Native installed app icons may have their own transparent insets;
-        // keep them large while preserving their aspect ratio on a TV screen.
-        int glyphSize = icon != null ? px(112) : px(88);
-        tile.addView(graphic, new LinearLayout.LayoutParams(glyphSize, glyphSize));
+        tile.setBackground(dockSurface(pkg, false));
+
+        if (banner != null) {
+            // Standard Android TV banners have landscape proportions.
+            // FIT_CENTER shows the complete banner, including any native wordmark.
+            ImageView artwork = new ImageView(this);
+            artwork.setImageDrawable(banner);
+            artwork.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            artwork.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+            tile.setPadding(px(6), px(5), px(6), px(5));
+            tile.addView(artwork, new LinearLayout.LayoutParams(-1, -1));
+        } else if ("inputs".equals(pkg) || "settings".equals(pkg)) {
+            // These are system controls, not app logos: simple TV-style glyphs.
+            ImageView system = new ImageView(this);
+            system.setImageDrawable(new LineIcon("inputs".equals(pkg)
+                    ? LineIcon.HDMI : LineIcon.SETTINGS));
+            system.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            system.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+            tile.addView(system, new LinearLayout.LayoutParams(px(78), px(78)));
+        } else {
+            // TV-shaped fallback for apps with NO Leanback banner:
+            // a horizontal brand-mark + wordmark INSIDE the tile.
+            // Never enlarge a mobile square icon to fill the whole TV card.
+            LinearLayout brandRow = new LinearLayout(this);
+            brandRow.setGravity(Gravity.CENTER);
+            brandRow.setOrientation(LinearLayout.HORIZONTAL);
+            brandRow.setPadding(px(12), px(8), px(12), px(8));
+            if (YOUTUBE.equals(pkg)) {
+                TextView play = text("▶", 34, Color.WHITE, true);
+                play.setGravity(Gravity.CENTER);
+                play.setBackground(round(0xFFFF2025, 13, 0x00FFFFFF));
+                brandRow.addView(play, new LinearLayout.LayoutParams(px(67), px(51)));
+            } else if (STREMIO.equals(pkg)) {
+                TextView logo = text("◆", 62, 0xFF9C83FF, true);
+                logo.setGravity(Gravity.CENTER);
+                brandRow.addView(logo, new LinearLayout.LayoutParams(px(65), px(75)));
+            } else if (appIcon != null) {
+                ImageView smallMark = new ImageView(this);
+                smallMark.setImageDrawable(appIcon);
+                smallMark.setScaleType(ImageView.ScaleType.FIT_CENTER);
+                smallMark.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+                brandRow.addView(smallMark, new LinearLayout.LayoutParams(px(64), px(64)));
+            } else {
+                ImageView generic = new ImageView(this);
+                generic.setImageDrawable(new LineIcon(LineIcon.PLAY));
+                generic.setScaleType(ImageView.ScaleType.FIT_CENTER);
+                generic.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+                brandRow.addView(generic, new LinearLayout.LayoutParams(px(60), px(60)));
+            }
+            TextView wordmark = text(STREMIO.equals(pkg) ? "STREMIO" : label,
+                    (YOUTUBE.equals(pkg) || STREMIO.equals(pkg)) ? 31 : 27,
+                    Color.WHITE, true);
+            wordmark.setSingleLine(true);
+            wordmark.setEllipsize(TextUtils.TruncateAt.END);
+            wordmark.setGravity(Gravity.CENTER_VERTICAL);
+            wordmark.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+            LinearLayout.LayoutParams wordParams = new LinearLayout.LayoutParams(0, -2, 1f);
+            wordParams.leftMargin = px(12);
+            brandRow.addView(wordmark, wordParams);
+            tile.addView(brandRow, new LinearLayout.LayoutParams(-1, -1));
+        }
 
         tile.setOnFocusChangeListener((v, focused) -> {
-            // TV-style focus: readable logo, no white-label layout or text.
-            // Preserve the tested remote control / focus navigation behavior.
             tile.setBackground(dockSurface(pkg, focused));
-            tile.setElevation(focused ? px(10) : 0);
+            tile.setElevation(focused ? px(12) : 0);
             tile.animate().scaleX(focused ? 1.045f : 1f)
                     .scaleY(focused ? 1.045f : 1f).setDuration(155).start();
             if (focused) showSelection(pkg, label);
