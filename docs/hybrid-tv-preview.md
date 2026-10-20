@@ -1,4 +1,60 @@
-# Hybrid TV Preview v0.3.8 (isolated test app)
+# Hybrid TV Preview v0.4.0 (isolated test app)
+
+## v0.4.0 — Brunei-Muara current / next prayer widget
+
+This preview now shows a real, locally embedded prayer timetable rather than
+the static "awaiting verification" notice, with precise **Brunei time**.
+The initial verified scope is **1 October–31 December 2026** only (92 days);
+2027 and earlier 2026 dates must never be extrapolated. For unsupported
+dates the widget explicitly reports "Timetable unavailable" with `--:--`
+instead of making up prayer times.
+
+The embedded source is the published **TAQWIM 2026 ©PDI2025** printed
+tables from Pusat Da'wah Islamiah, Ministry of Religious Affairs, and the
+Jabatan Ukur official 2026 timetable listing. Times for **Brunei-Muara**
+require no district offset. See:
+- https://www.mora.gov.bn/SitePages/WaktuSembahyang.aspx
+- https://www.survey.gov.bn/jadual-waktu-sembahyang/
+- Publicly readable 2026 PDI Taqwim text:
+  https://id.scribd.com/document/970886922/TAQWIM-2026-PDI2025
+
+The table provides **Subuh, Syuruk, Zuhur, Asar, Maghrib and Isyak**.
+Syuruk is used only as the end of the Subuh period, **not counted as a
+sixth obligatory prayer**. The widget displays the five obligatory
+prayer times, highlights a period only when that prayer is currently
+active, and gives the next prayer's name, scheduled time and countdown.
+Between sunrise and Zuhur it says "After Syuruk · before Zuhur"; after
+midnight and before Subuh it says "Night · awaiting Subuh" and does
+**not** incorrectly highlight yesterday's Asar. After Isyak, it looks
+up **tomorrow's verified** Subuh and rolls over the countdown across midnight.
+
+The screen refreshes countdown and active prayer automatically every
+30 seconds and refreshes immediately when the launcher returns to the
+foreground. No new Internet access or permissions are needed; this is an
+**offline** timetable. The weather remains the only data fetched by HTTPS.
+
+Verification in CI checks all 92 daily entries for nonmissing values,
+ascending prayer times, the month boundary, 2026-10-21, first/last dates
+of each month, and makes sure the program declines 2027 and
+out-of-range dates. Oct 21 is **04:47 / 06:05 / 12:06 / 15:24 /
+18:05 / 19:15** (Subuh/Syuruk/Zuhur/Asar/Maghrib/Isyak).
+
+**Preserved without visual changes:** v0.3.8's single smooth blue focus
+outline, original native TV banners, dock dimensions, D-pad navigation,
+family photo slideshow, cinematic Stremio artwork and progress, clock,
+weather and Home/Back behavior. Permanent `com.ansub.tvhome.photos.stable`
+is unchanged, and test `com.ansub.tvhome.hybrid.preview` has no HOME
+intent. For a test-key rotation, return to Home Photos, revoke the old
+preview's optional notification-listener access, uninstall *only the
+hybrid preview*, and install the new test-signed APK. Re-grant read-only
+photo access afterward.
+
+**Follow-up:** Import and independently verify January–September 2026
+and the official 2027 Taqwim when available; never silently repeat
+2026 dates in a different year. This build covers the user's current
+October date and the remaining 2026 dates.
+
+## Earlier v0.3.8 dock focus refinements
 
 ## v0.3.8 — fix doubled outline introduced in v0.3.7
 
