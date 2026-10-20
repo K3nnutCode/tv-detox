@@ -57,6 +57,8 @@ if [ "$MODE" = release ]; then
   "$BT/apksigner" verify "$OUT/hybrid-tv-v1.0.0.apk"
   echo "Built production-signed Hybrid TV Stable v1.0.0"
 else
+  # keytool creates the keystore itself; mktemp leaves an empty file.
+  rm -f "$KEY_TMP"
   keytool -genkeypair -keystore "$KEY_TMP" -storetype PKCS12 \
     -storepass smoke-test-only -keypass smoke-test-only \
     -alias ci-smoke -keyalg RSA -keysize 2048 -validity 2 \
