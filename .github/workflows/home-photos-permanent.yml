@@ -33,8 +33,18 @@ jobs:
           }
           umask 077
           KEY_FILE="$RUNNER_TEMP/home-photos-stable.jks"
-          printf '%s' "$KEY_B64" | base64 -d > "$KEY_FILE"
-          [ -s "$KEY_FILE" ] || { echo "Signing key could not be decoded" >&2; exit 1; }
+          trap 'rm -f "$KEY_FILE"' EXIT
+          # Windows clipboard paste can add CR/LF or spaces to base64.
+          # Accept that harmless whitespace but reject other invalid input.
+          if ! printf '%s' "$KEY_B64" | tr -d '[:space:]' | base64 --decode > "$KEY_FILE"; then
+            echo "Invalid base64 signing key: re-copy the ORIGINAL .jks file into HOME_PHOTOS_RELEASE_KEYSTORE_B64." >&2
+            exit 1
+          fi
+          [ -s "$KEY_FILE" ] || { echo "Signing key decoded to an empty file" >&2; exit 1; }
+          if ! keytool -list -keystore "$KEY_FILE" -storepass "$KEY_PASSWORD" -alias homephotosstable >/dev/null 2>&1; then
+            echo "Signing key check failed: verify the JKS file, alias homephotosstable and password secret." >&2
+            exit 1
+          fi
           export HOME_PHOTOS_STABLE=1
           export HOME_PHOTOS_KEYSTORE="$KEY_FILE"
           export HOME_PHOTOS_KEYSTORE_PASS="$KEY_PASSWORD"
@@ -42,7 +52,6 @@ jobs:
           "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose out-photos-stable/home-photos-stable.apk
           "$ANDROID_HOME/build-tools/34.0.0/aapt" dump badging out-photos-stable/home-photos-stable.apk |
             grep -F "package: name='com.ansub.tvhome.photos.stable'"
-          rm -f "$KEY_FILE"
       - uses: actions/upload-artifact@v4
         with:
           name: home-photos-permanent-signed-apk
