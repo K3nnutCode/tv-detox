@@ -1,6 +1,22 @@
 # Hybrid TV Preview v0.1 (isolated test app)
 
-This is **stage 1** of the combined CleanYourTV-inspired TV home and Home Photos. It is a separate application, **not** a Home launcher. The permanent `com.ansub.tvhome.photos.stable` remains unchanged/default, as do Stremio and other apps.
+This is **stage 1** of the combined CleanYourTV-inspired TV home and Home Photos. It is a separate application, **not** a Home launcher.
+
+## v0.2 TV remote navigation fix
+
+The initial v0.1 layout let the background take focus on some TCL TV remotes.
+v0.2 handles D-pad keys explicitly:
+
+- DOWN or RIGHT from the unselected photo view enters the app dock
+- LEFT/RIGHT moves between dock entries with visible focus
+- UP returns to the unobstructed family photo slideshow
+- OK/Enter opens the focused tile
+- BACK and HOME retain system behavior
+
+The preview APK is signed with a **different disposable key per GitHub build**.
+Before installing v0.2, return to the permanent Home Photos screen, **uninstall
+only** `com.ansub.tvhome.hybrid.preview`, then install the newest downloaded
+`hybrid-tv-preview.apk`. Do not uninstall Home Photos or Stremio. The permanent `com.ansub.tvhome.photos.stable` remains unchanged/default, as do Stremio and other apps.
 
 ## Included
 
@@ -22,6 +38,10 @@ This preview is a fresh Android application implementing our layout; it is **Cle
 ```sh
 adb connect 192.168.68.55:5555
 adb shell pm list packages com.ansub.tvhome.hybrid.preview
+# If installed, first return to working Home Photos and uninstall ONLY the preview.
+adb shell am start -n com.ansub.tvhome.photos.stable/com.ansub.tvhome.MainActivity
+adb shell cmd notification disallow_listener com.ansub.tvhome.hybrid.preview/com.ansub.tvhome.HybridSessionListener
+adb uninstall com.ansub.tvhome.hybrid.preview
 adb install "$HOME/Downloads/hybrid-tv-preview.apk"
 adb shell pm grant com.ansub.tvhome.hybrid.preview android.permission.READ_EXTERNAL_STORAGE
 adb shell am start -n com.ansub.tvhome.hybrid.preview/com.ansub.tvhome.HybridActivity
