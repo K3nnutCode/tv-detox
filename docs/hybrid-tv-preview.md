@@ -1,4 +1,48 @@
-# Hybrid TV Preview v0.4.1 (isolated test app)
+# Hybrid TV Preview v0.4.2 (isolated test app)
+
+## v0.4.2 — non-stretched, aspect-ratio-correct family wallpaper
+
+A real TCL screenshot after the successful v0.4.1 stability tests showed
+the family photos appearing unnaturally stretched. Code inspection found a
+likely reason: the old slideshow built a `TransitionDrawable` combining two
+different size/orientation `BitmapDrawable` images. Those layers share
+bounds, which can distort one of the photo layers despite the outer
+ImageView having `CENTER_CROP`.
+
+The preview now uses a `TvWallpaperView` with TWO SEPARATE wallpaper frames.
+Each frame owns its own background and foreground ImageView so image scaling
+never mixes photo sizes; only the complete frame alpha is crossfaded for 850ms.
+
+- Normal wide landscape photos: **CENTER_CROP**, filling a 16:9 TV screen
+  without squashing or stretching; small edge crop is possible.
+- Portrait and narrower-than-1.55:1 photographs (including 4:3): show the
+  original FULL picture using **FIT_CENTER** over a **blurred, center-cropped
+  copy of the same photo** that fills the TV behind it. No black pillarboxes.
+- Blurred textures are generated off the UI thread at ~213x120 pixels, using
+  a two-pass software box blur supported on TCL Android TV 11 (API 30).
+  They do not require new network access, RenderEffect, or third-party SDKs.
+- Keep the 60-second slideshow cadence and 850ms crossfade. Decode sampling
+  now limits both the photo's width AND height, reducing portrait-memory use;
+  finished crossfades release references to the old frame's bitmap.
+- No photo modification: all images remain read-only under
+  `/sdcard/Pictures/TVWallpapers/`. No changes to photo selection/order.
+
+The current prayer times/highlighting, verified Brunei timetable,
+weather timeout/retry improvement, permanent Home Photos launcher, Stremio
+cinematic art, native dock banners and focus ring are **unchanged**.
+
+Safety: This is still ONLY `com.ansub.tvhome.hybrid.preview`, with no HOME
+intent, no apps disabled, and no new permissions. Since the ephemeral
+GitHub Actions key changes each run, return to permanent Home Photos,
+revoke only the preview's optional notification access, uninstall only
+the *previous hybrid preview*, and install this newly signed test APK.
+Restore photo read permission to the new installation.
+
+**Validation:** CI Android TV navigation test checks the app opens and
+responds to the remote. The final photo aspect-ratio/blur judgment must
+be made from TCL screenshots showing landscape and portrait slides.
+
+## Previous v0.4.1 weather fix
 
 ## v0.4.1 — weather reliability after TCL HTTPS handshake timeout
 
