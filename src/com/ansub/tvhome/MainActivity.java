@@ -30,6 +30,7 @@ import android.media.tv.TvContract;
 import android.media.tv.TvInputInfo;
 import android.media.tv.TvInputManager;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
@@ -95,9 +96,11 @@ public class MainActivity extends Activity {
     private boolean longPressed; // OK was held: swallow the key-up so the app doesn't open
 
     // ---- Photo slideshow behind the home screen ----
-    // Put photos (jpg, png, webp) in the app's own folder, so no storage permission is needed:
-    //   /sdcard/Android/data/com.ansub.tvhome/files/wallpapers/
-    // With no photos in that folder the home screen looks exactly as it did before.
+    // Put photos (jpg, png, webp) in this folder on the TV (adb push can write there):
+    //   /sdcard/Pictures/TVWallpapers/
+    // The app needs one read-only permission, granted once from your PC:
+    //   adb shell pm grant com.ansub.tvhome android.permission.READ_EXTERNAL_STORAGE
+    // With no photos in that folder, or no permission, the home screen looks exactly as it did before.
     private static final long SLIDE_MS = 60000;      // how long each photo stays up
     private static final int FADE_MS = 1000;         // fade between photos
     private static final int PHOTO_DIM = 0x26000000; // 15% black over every photo
@@ -798,11 +801,7 @@ public class MainActivity extends Activity {
     // ---------------- Photo slideshow ----------------
 
     private File photoDir() {
-        File base = getExternalFilesDir(null);
-        if (base == null) return null;
-        File d = new File(base, "wallpapers");
-        if (!d.exists()) d.mkdirs();
-        return d;
+        return new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), "TVWallpapers");
     }
 
     private void scanPhotos() {
