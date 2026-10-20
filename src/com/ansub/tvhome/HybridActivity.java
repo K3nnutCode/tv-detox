@@ -68,10 +68,10 @@ public final class HybridActivity extends Activity {
     private final Handler ui = new Handler(Looper.getMainLooper());
     private final ArrayList<View> dockTiles = new ArrayList<>();
     private final ArrayList<File> photos = new ArrayList<>();
-    private ImageView photo, cinematic, cardArtwork;
-    private TextView heading, details, footnote, greetingView;
+    private ImageView photo, cinematic, heroArtwork;
+    private TextView heading, details, footnote, greetingView, heroEyebrow, heroAction;
     private ProgressBar playbackProgress;
-    private LinearLayout hero;
+    private FrameLayout hero;
     private final Runnable greetingTick = new Runnable() {
         @Override public void run() {
             if (!active) return;
@@ -154,48 +154,78 @@ public final class HybridActivity extends Activity {
         wp.rightMargin = px(60);
         stage.addView(weather, wp);
 
-        hero = new LinearLayout(this);
-        hero.setOrientation(LinearLayout.HORIZONTAL);
-        hero.setGravity(Gravity.CENTER_VERTICAL);
-        hero.setPadding(px(26), px(18), px(26), px(18));
-        hero.setBackground(round(0xB9121B2A, 24, 0x36FFFFFF));
-        cardArtwork = new ImageView(this);
-        cardArtwork.setScaleType(ImageView.ScaleType.CENTER_CROP);
-        cardArtwork.setVisibility(View.GONE);
-        LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(px(335), px(188));
-        cp.rightMargin = px(24);
-        hero.addView(cardArtwork, cp);
+        // FEATURED HERO: reference layout at 1920x1080.
+        // Approx. x=68..1378, y=275..810, leaving 30px before the dock.
+        // The series artwork fills the entire big feature panel, not a thumbnail.
+        hero = new FrameLayout(this);
+        hero.setBackground(round(0xD1141C2B, 30, 0x62FFFFFF));
+        hero.setClipToOutline(true);
+        heroArtwork = new ImageView(this);
+        heroArtwork.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        heroArtwork.setVisibility(View.GONE);
+        hero.addView(heroArtwork, new FrameLayout.LayoutParams(-1, -1));
+
+        // Preserve high contrast over bright family photos / Stremio key art.
+        // The right side shows the artwork, and the left carries the text.
+        View heroShade = new View(this);
+        heroShade.setBackground(new GradientDrawable(
+                GradientDrawable.Orientation.LEFT_RIGHT,
+                new int[] {0xF3141A2A, 0xE91A2130, 0x95141A2A, 0x24141A2A}));
+        hero.addView(heroShade, new FrameLayout.LayoutParams(-1, -1));
+
         LinearLayout writing = new LinearLayout(this);
         writing.setOrientation(LinearLayout.VERTICAL);
         writing.setGravity(Gravity.CENTER_VERTICAL);
-        heading = text("", 38, Color.WHITE, true);
-        heading.setSingleLine(true);
+        writing.setPadding(px(48), px(34), px(12), px(34));
+        heroEyebrow = text("CONTINUE WATCHING", 25, 0xFFD8E1F0, true);
+        heroEyebrow.setLetterSpacing(0.13f);
+        writing.addView(heroEyebrow);
+
+        heading = text("", 66, Color.WHITE, true);
+        heading.setMaxLines(2);
         heading.setEllipsize(TextUtils.TruncateAt.END);
-        details = text("", 25, 0xFFE8EDF5, false);
-        details.setSingleLine(true);
+        LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(-1, -2);
+        titleParams.topMargin = px(33);
+        writing.addView(heading, titleParams);
+
+        details = text("", 30, 0xFFEBF0F7, false);
+        details.setMaxLines(2);
         details.setEllipsize(TextUtils.TruncateAt.END);
-        footnote = text("", 21, 0xFFD1D9E7, false);
-        footnote.setSingleLine(true);
-        footnote.setEllipsize(TextUtils.TruncateAt.END);
-        LinearLayout.LayoutParams gap1 = new LinearLayout.LayoutParams(-1, -2);
-        gap1.topMargin = px(7);
-        writing.addView(heading);
-        writing.addView(details, gap1);
+        LinearLayout.LayoutParams detailsParams = new LinearLayout.LayoutParams(-1, -2);
+        detailsParams.topMargin = px(15);
+        writing.addView(details, detailsParams);
+
         playbackProgress = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
-        playbackProgress.setMax(1000); // Enough precision to show <1% progress.
+        playbackProgress.setMax(1000);
         playbackProgress.setProgress(0);
-        playbackProgress.setProgressTintList(ColorStateList.valueOf(0xFF8DC7F5));
-        playbackProgress.setProgressBackgroundTintList(ColorStateList.valueOf(0x5DFFFFFF));
+        playbackProgress.setProgressTintList(ColorStateList.valueOf(0xFF9C7BFA));
+        playbackProgress.setProgressBackgroundTintList(ColorStateList.valueOf(0x70FFFFFF));
         playbackProgress.setVisibility(View.GONE);
-        LinearLayout.LayoutParams trackParams = new LinearLayout.LayoutParams(-1, px(7));
-        trackParams.topMargin = px(15);
+        LinearLayout.LayoutParams trackParams = new LinearLayout.LayoutParams(-1, px(10));
+        trackParams.topMargin = px(30);
         writing.addView(playbackProgress, trackParams);
-        LinearLayout.LayoutParams gap2 = new LinearLayout.LayoutParams(-1, -2);
-        gap2.topMargin = px(10);
-        writing.addView(footnote, gap2);
-        hero.addView(writing, new LinearLayout.LayoutParams(0, -1, 1f));
+
+        footnote = text("", 23, 0xFFE1E6F0, false);
+        footnote.setMaxLines(2);
+        footnote.setEllipsize(TextUtils.TruncateAt.END);
+        LinearLayout.LayoutParams footnoteParams = new LinearLayout.LayoutParams(-1, -2);
+        footnoteParams.topMargin = px(14);
+        writing.addView(footnote, footnoteParams);
+
+        heroAction = text("▶  Press OK to open", 23, Color.WHITE, true);
+        heroAction.setGravity(Gravity.CENTER_VERTICAL);
+        heroAction.setPadding(px(24), px(13), px(24), px(13));
+        heroAction.setBackground(round(0xAA452C83, 18, 0xFF9B78ED));
+        LinearLayout.LayoutParams actionParams = new LinearLayout.LayoutParams(-2, -2);
+        actionParams.topMargin = px(29);
+        writing.addView(heroAction, actionParams);
+
+        // Keep text within the left half, leaving the right half visually cinematic.
+        FrameLayout.LayoutParams textParams = new FrameLayout.LayoutParams(
+                px(730), -1, Gravity.LEFT | Gravity.TOP);
+        hero.addView(writing, textParams);
         hero.setVisibility(View.GONE);
-        stage.addView(hero, pos(px(100), px(295), px(1210), px(256)));
+        stage.addView(hero, pos(px(68), px(274), px(1310), px(536)));
 
         LinearLayout dock = new LinearLayout(this);
         dock.setOrientation(LinearLayout.HORIZONTAL);
@@ -273,9 +303,9 @@ public final class HybridActivity extends Activity {
             cinematic.setVisibility(View.GONE);
             cinematic.setImageDrawable(null);
         }
-        if (cardArtwork != null) {
-            cardArtwork.setVisibility(View.GONE);
-            cardArtwork.setImageDrawable(null);
+        if (heroArtwork != null) {
+            heroArtwork.setVisibility(View.GONE);
+            heroArtwork.setImageDrawable(null);
         }
     }
 
@@ -392,10 +422,14 @@ public final class HybridActivity extends Activity {
     private void showSelection(String pkg, String label) {
         cinematic.setVisibility(View.GONE);
         cinematic.setImageDrawable(null);
-        cardArtwork.setVisibility(View.GONE);
-        cardArtwork.setImageDrawable(null);
+        heroArtwork.setVisibility(View.GONE);
+        heroArtwork.setImageDrawable(null);
         hero.setVisibility(View.VISIBLE);
         playbackProgress.setVisibility(View.GONE);
+        heroEyebrow.setText(STREMIO.equals(pkg) ? "CONTINUE WATCHING  ·  STREMIO"
+                : YOUTUBE.equals(pkg) ? "YOUTUBE  ·  FEATURED"
+                : "YOUR APPS  ·  " + label.toUpperCase(Locale.US));
+        heroAction.setText("▶  Press OK to open " + label);
         heading.setText(label);
         if (STREMIO.equals(pkg)) {
             showStremio();
@@ -450,8 +484,8 @@ public final class HybridActivity extends Activity {
                 if (bmp == null) bmp = metadata.getBitmap(MediaMetadata.METADATA_KEY_ART);
                 if (bmp == null) bmp = metadata.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART);
                 if (bmp != null) {
-                    cardArtwork.setImageBitmap(bmp);
-                    cardArtwork.setVisibility(View.VISIBLE);
+                    heroArtwork.setImageBitmap(bmp);
+                    heroArtwork.setVisibility(View.VISIBLE);
                     cinematic.setImageBitmap(bmp);
                     cinematic.setVisibility(View.VISIBLE);
                 }
