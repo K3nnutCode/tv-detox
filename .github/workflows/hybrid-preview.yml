@@ -80,21 +80,20 @@ jobs:
             # Root landing view starts unfocused on an app; DOWN must enter dock.
             adb shell input keyevent KEYCODE_DPAD_DOWN
             adb shell uiautomator dump /sdcard/hybrid-focus.xml >/dev/null
-            first=$(adb shell cat /sdcard/hybrid-focus.xml | grep -oE 'content-desc="Hybrid dock: [^"]*"[^>]*focused="true"' | head -n1)
-            test -n "$first"
-            echo "DOWN focused: $first"
+            # Each line in emulator-runner is its own shell; preserve results in files.
+            adb shell cat /sdcard/hybrid-focus.xml | grep -oE 'content-desc="Hybrid dock: [^"]*"[^>]*focused="true"' > focus-down.txt
+            test -s focus-down.txt
             # RIGHT must move focus to a different app/utility tile.
             adb shell input keyevent KEYCODE_DPAD_RIGHT
             adb shell uiautomator dump /sdcard/hybrid-focus.xml >/dev/null
-            second=$(adb shell cat /sdcard/hybrid-focus.xml | grep -oE 'content-desc="Hybrid dock: [^"]*"[^>]*focused="true"' | head -n1)
-            test -n "$second"
-            test "$first" != "$second"
-            echo "RIGHT focused: $second"
+            adb shell cat /sdcard/hybrid-focus.xml | grep -oE 'content-desc="Hybrid dock: [^"]*"[^>]*focused="true"' > focus-right.txt
+            test -s focus-right.txt
+            ! cmp -s focus-down.txt focus-right.txt
             # LEFT must return to the original tile.
             adb shell input keyevent KEYCODE_DPAD_LEFT
             adb shell uiautomator dump /sdcard/hybrid-focus.xml >/dev/null
-            third=$(adb shell cat /sdcard/hybrid-focus.xml | grep -oE 'content-desc="Hybrid dock: [^"]*"[^>]*focused="true"' | head -n1)
-            test "$third" = "$first"
+            adb shell cat /sdcard/hybrid-focus.xml | grep -oE 'content-desc="Hybrid dock: [^"]*"[^>]*focused="true"' > focus-left.txt
+            cmp -s focus-down.txt focus-left.txt
             # UP returns to the full-screen family-photo view, no dock tile focused.
             adb shell input keyevent KEYCODE_DPAD_UP
             adb shell uiautomator dump /sdcard/hybrid-focus.xml >/dev/null
