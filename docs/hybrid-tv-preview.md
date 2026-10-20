@@ -1,4 +1,54 @@
-# Hybrid TV Preview v0.4.2 (isolated test app)
+# Hybrid TV Preview v0.4.3 (isolated test app)
+
+## v0.4.3 — Stremio last-seen playback card survives pressing Back
+
+The TCL Android TV 11 test confirmed that pressing Home from Stremio kept
+its media session and showed artwork/progress, but pressing Back returned to
+Stremio's menu and often **removed the active media session**. Hybrid TV had
+only queried `MediaSessionManager.getActiveSessions()` when its tile was
+focused, so there was no independent Continue Watching record.
+
+This version adds **best-effort, local, explicitly opt-in last-seen snapshots**:
+- `HybridSessionListener` listens for active media sessions **only when the
+  owner has granted Android's notification-listener access**. It filters
+  sessions strictly to `com.stremio.one`. It never reads notification
+  messages, contents, titles, other apps' metadata, or contacts.
+- It registers `MediaController.Callback` for Stremio and samples session
+  position every 15 seconds while connected. Only a valid
+  PLAYING/PAUSED/BUFFERING session with title, duration and position is
+  eligible for capture. This is best effort: Android firmware can kill
+  background services or Stremio can stop reporting media sessions.
+- Captures title, artist, duration, last observed progress and a locally
+  downscaled JPG of provided artwork in preview-app PRIVATE storage.
+  No server sync, Internet calls, account access or extra permissions.
+- When the selected Stremio card has no valid live session, the launcher
+  reads the previous snapshot. A saved card clearly displays
+  **"LAST SEEN · STREMIO · SAVED"**, an original observed time and saved
+  progress, rather than claiming real-time playing information.
+- A stored card expires after **14 days**. Disabling the optional listener
+  causes the private saved data to be purged (on system callback or the
+  next attempt to view Stremio). Deleting this isolated preview also
+  deletes its cached information.
+- The launcher still opens Stremio normally. This is **not** a complete
+  Stremio watch-history API, and it does NOT guarantee the exact resume
+  location after Stremio discards its own history.
+- Android TV 11 emulator tests cover app start and D-pad focus, but only
+  a real Stremio session on the TCL can verify the Back/Home distinction.
+
+Everything already approved in v0.4.2 stays intact: undistorted family
+slideshow and crossfade, native TV app banners, single blue focus outline,
+1310×536 Stremio hero framing, Brunei prayer times and transitions, stable
+Open-Meteo weather retries, and the permanent Home Photos fallback.
+The package remains `com.ansub.tvhome.hybrid.preview`, and its manifest
+still has NO HOME intent.
+
+**Install note:** the CI test signing certificate is disposable. Return to
+permanent Home Photos, revoke the existing preview listener, uninstall
+ONLY the old Hybrid TV Preview, install v0.4.3, grant the same photo-read
+permission if required, then explicitly re-enable the optional listener
+before testing Stremio. Do not disable or remove Stremio/Home Photos.
+
+## Earlier v0.4.2 wallpaper fix
 
 ## v0.4.2 — non-stretched, aspect-ratio-correct family wallpaper
 
