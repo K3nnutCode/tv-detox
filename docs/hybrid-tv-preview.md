@@ -1,4 +1,29 @@
-# Hybrid TV Preview v0.3.7 (isolated test app)
+# Hybrid TV Preview v0.3.8 (isolated test app)
+
+## v0.3.8 — fix doubled outline introduced in v0.3.7
+
+The TCL screenshot from v0.3.7 showed a **double, offset blue focus
+rectangle**, with uneven edges around Stremio. We traced this to v0.3.7
+drawing two selection strokes: one in the tile's `dockSurface()`
+background and another in its over-banner foreground.
+
+**This release draws only ONE blue rounded focus outline.** The selected
+background has **no stroke** at all, and the foreground has one 3px blue
+stroke, inset 3px within the rounded clipping region. Unselected tiles
+retain their subtle 1px neutral outline.
+
+Only this selected-focus stroke changes. Original YouTube/Stremio/Play
+Store/Quick Panel banners, tile sizing, banner crop-to-fill, six-tile dock,
+D-pad navigation, Continue Watching hero, slideshow, weather, clock,
+and unverified prayer placeholder are not changed.
+
+This remains a test-only app (`com.ansub.tvhome.hybrid.preview`) without
+a HOME intent. Preserve the permanent Home Photos launcher. Because CI
+uses a disposable signing key, return to Home Photos, revoke the old
+preview's optional broad notification permission, uninstall **only** the
+hybrid preview and install v0.3.8. No new permissions needed.
+
+## Previous v0.3.7 focus border experiment
 
 ## v0.3.7 — fix missing left/right focus outline over original TV banners
 
