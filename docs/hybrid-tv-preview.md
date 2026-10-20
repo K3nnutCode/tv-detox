@@ -1,4 +1,18 @@
-# Hybrid TV Preview v0.3.1 (isolated test app)
+# Hybrid TV Preview v0.3.2 (isolated test app)
+
+## v0.3.2 — right-side art framing and smooth cinematic fade
+
+The large selected-app featured panel **stays 1310 × 536 at x=68,y=274**.
+This is a targeted visual fix requested after the real TCL v0.3.1 screenshot:
+- Stremio's 16:9 media-session artwork now occupies an **850px-wide right-aligned viewport** inside the unchanged hero, rather than being enlarged to the full hero's 2.44:1 shape.
+- The existing `CENTER_CROP` within this narrower viewport retains the image height and most character/body details (less severe cropping than the old 1310×536 crop). The artwork is intentionally positioned on the right; the text remains on the left.
+- A five-stop left-to-right overlay protects the show title and progress bar and fades gently to nearly transparent over the right-side artwork.
+- No change to the fullscreen cinematic backdrop, actual media-session information, playback progress, TV remote controls, slideshow, clock, weather, prayer placeholder, or permanent Home Photos.
+- YouTube and other apps still use the **same large hero size** but honestly show placeholder information until metadata capabilities are verified.
+- Test package stays `com.ansub.tvhome.hybrid.preview`; uninstall only the old preview because GitHub generates an ephemeral test certificate for every APK.
+- Real TV review is needed after the Android TV 11 CI build; screen appearance depends on the original Stremio-provided image.
+
+## Earlier v0.3.1 large-panel update
 
 ## v0.3.1 — large cinematic featured panel matching design reference
 
