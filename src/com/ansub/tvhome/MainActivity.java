@@ -109,13 +109,14 @@ public class MainActivity extends Activity {
     private static final long SLIDE_MS = 60000;      // how long each photo stays up
     private static final int FADE_MS = 1000;         // fade between photos
     private static final int PHOTO_DIM = 0x26000000; // 15% black over every photo
-    private static final int BOX_COLOR = 0x99000000; // 60% black box behind the date and time
+    private static final int BOX_COLOR = 0x99000000; // original offline launcher only
     private static final int BOX_PAD_X = 32, BOX_PAD_Y = 20, BOX_RADIUS = 28;
     private final Handler ui = new Handler(Looper.getMainLooper());
     private ImageView photoView;
     private View bottomScrim;
     private LinearLayout clockBox;
     private WeatherWidget weatherWidget; // available only in the separately installed Home Photos edition
+    private FrostedBackdrop clockGlass, weatherGlass;
     private List<File> photos = new ArrayList<>();
     private int photoIndex = -1;
     private boolean slideshowOn;
@@ -153,7 +154,11 @@ public class MainActivity extends Activity {
         LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(-2, -2);
         tp.topMargin = px(-20); // pull the big digits up under the date
         clock.addView(time, tp);
-        clockBox = clock; // the dark box is drawn around it only while a photo is showing
+        clockBox = clock; // a glass panel appears around it while a photo is showing
+        if (getPackageName().startsWith("com.ansub.tvhome.photos")) {
+            android.util.DisplayMetrics dm = getResources().getDisplayMetrics();
+            clockGlass = new FrostedBackdrop(clock, dm.widthPixels, dm.heightPixels, px(BOX_RADIUS));
+        }
         clock.setPadding(px(BOX_PAD_X), px(BOX_PAD_Y), px(BOX_PAD_X), px(BOX_PAD_Y));
         root.addView(clock, at(px(MARGIN - BOX_PAD_X), px(92 - BOX_PAD_Y), -2, -2));
 
@@ -180,6 +185,9 @@ public class MainActivity extends Activity {
         // The new, separately installed Home Photos package adds weather to the upper right.
         if (getPackageName().startsWith("com.ansub.tvhome.photos")) {
             weatherWidget = new WeatherWidget(this, scale);
+            android.util.DisplayMetrics dm = getResources().getDisplayMetrics();
+            weatherGlass = new FrostedBackdrop(weatherWidget, dm.widthPixels, dm.heightPixels, px(BOX_RADIUS));
+            weatherWidget.setBackground(weatherGlass);
             FrameLayout.LayoutParams weatherParams = new FrameLayout.LayoutParams(
                     px(435), -2, Gravity.TOP | Gravity.RIGHT);
             weatherParams.topMargin = px(92);
@@ -280,6 +288,8 @@ public class MainActivity extends Activity {
         // Away from the home screen (YouTube, Stremio...): give the photo's memory back.
         photoView.setImageDrawable(null);
         showPhotoStyle(false);
+        if (clockGlass != null) clockGlass.setBlurredPhoto(null);
+        if (weatherGlass != null) weatherGlass.setBlurredPhoto(null);
         super.onStop();
     }
 
@@ -360,7 +370,7 @@ public class MainActivity extends Activity {
             try { label = pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString(); } catch (Exception ignored) {}
             // Apps without a TV banner get a plain tile with their normal icon.
             Drawable icon = null;
-            if (banner == null || getPackageName().startsWith("com.ansub.tvhome.photos"))
+            if (banner == null)
                 try { icon = pm.getApplicationIcon(pkg); } catch (Exception ignored) {}
             int i = rowApps.size();
             rowApps.add(pkg);
@@ -389,30 +399,33 @@ public class MainActivity extends Activity {
     private void addTile(ViewGroup parent, final String key, String label, Drawable banner, int[] lineIcon, Drawable appIcon,
                          int x, int y, int w, int h) {
         FrameLayout card = new FrameLayout(this);
-        // Home Photos uses one consistent, translucent tile design so app banners don't compete
-        // with the family photographs. The original offline launcher retains its old styling.
+        // Smart TV app banners are widescreen, unlike phone/tablet app icons.
+        // Keep them for Home Photos, with no white tile outlines or app-icon grid look.
         final boolean photosEdition = getPackageName().startsWith("com.ansub.tvhome.photos");
-        final boolean showBanner = banner != null && !photosEdition;
+        final boolean showBanner = banner != null;
         final GradientDrawable bg = new GradientDrawable();
         bg.setCornerRadius(px(RADIUS));
+        final ImageView bannerView;
         if (showBanner) {
             bg.setColor(0xFF1E1A1C);
-            ImageView iv = new ImageView(this);
-            iv.setImageDrawable(fit(banner, w, h));
-            card.addView(iv, new FrameLayout.LayoutParams(-1, -1));
+            bannerView = new ImageView(this);
+            bannerView.setImageDrawable(fit(banner, w, h));
+            if (photosEdition) bannerView.setAlpha(0.92f);
+            card.addView(bannerView, new FrameLayout.LayoutParams(-1, -1));
         } else {
-            // Quiet "glass" tile: icon above label.
-            bg.setColor(photosEdition ? 0xB51A2330 : 0x13FFFFFF);
-            bg.setStroke(Math.max(1, px(2)), photosEdition ? 0x66FFFFFF : 0x17FFFFFF);
+            bannerView = null;
+            // Quiet dark media tile for utility shortcuts and apps without TV banners.
+            bg.setColor(photosEdition ? 0xA8192433 : 0x13FFFFFF);
+            if (!photosEdition) bg.setStroke(Math.max(1, px(2)), 0x17FFFFFF);
             LinearLayout inner = new LinearLayout(this);
             inner.setOrientation(LinearLayout.VERTICAL);
             inner.setGravity(Gravity.CENTER);
             ImageView iv = new ImageView(this);
-            int size = lineIcon != null ? px(48) : photosEdition ? px(74) : px(64);
+            int size = lineIcon != null ? px(46) : photosEdition ? px(62) : px(64);
             if (lineIcon != null) iv.setImageDrawable(new LineIcon(lineIcon));
             else if (appIcon != null) iv.setImageDrawable(fit(appIcon, size, size));
             inner.addView(iv, new LinearLayout.LayoutParams(size, size));
-            TextView t = text(px(photosEdition ? 25 : 24), 0xF1FFFFFF, regular);
+            TextView t = text(px(24), 0xF1FFFFFF, regular);
             t.setText(label);
             t.setSingleLine(true);
             t.setEllipsize(android.text.TextUtils.TruncateAt.END);
@@ -440,8 +453,9 @@ public class MainActivity extends Activity {
         card.setOnFocusChangeListener((v, has) -> {
             if (has) focusedKey = key;
             if (photosEdition) {
-                bg.setColor(has ? 0xE035455A : 0xB51A2330);
-                bg.setStroke(Math.max(1, px(2)), has ? 0xF2FFFFFF : 0x66FFFFFF);
+                if (!showBanner) bg.setColor(has ? 0xE0364556 : 0xA8192433);
+                if (bannerView != null) bannerView.animate().alpha(has ? 1f : 0.92f)
+                        .setDuration(140).start();
             } else if (glass) bg.setColor(has ? 0x38FFFFFF : 0x13FFFFFF);
             float focusedScale = photosEdition ? 1.07f : 1.1f;
             v.animate().scaleX(has ? focusedScale : 1f).scaleY(has ? focusedScale : 1f)
@@ -916,10 +930,14 @@ public class MainActivity extends Activity {
         new Thread(new Runnable() {
             @Override public void run() {
                 final Bitmap b = decodePhoto(file); // off the main thread: the remote stays responsive
+                // Small frosted copy for clock + weather, computed off the UI thread.
+                android.util.DisplayMetrics dm = getResources().getDisplayMetrics();
+                final Bitmap frosted = b != null && clockGlass != null
+                        ? FrostedBackdrop.blurPhoto(b, dm.widthPixels, dm.heightPixels) : null;
                 ui.post(new Runnable() {
                     @Override public void run() {
                         if (token != loadToken || !slideshowOn) return; // left the home screen meanwhile
-                        if (b != null) showPhoto(b);
+                        if (b != null) showPhoto(b, frosted);
                         if (photos.size() > 1) ui.postDelayed(nextSlide, b != null ? SLIDE_MS : 2000);
                     }
                 });
@@ -990,7 +1008,9 @@ public class MainActivity extends Activity {
         }
     }
 
-    private void showPhoto(Bitmap b) {
+    private void showPhoto(Bitmap b, Bitmap frosted) {
+        if (clockGlass != null) clockGlass.setBlurredPhoto(frosted);
+        if (weatherGlass != null) weatherGlass.setBlurredPhoto(frosted);
         BitmapDrawable next = new BitmapDrawable(getResources(), b);
         Drawable from = photoView.getDrawable();
         if (from instanceof TransitionDrawable) from = ((TransitionDrawable) from).getDrawable(1);
@@ -1012,10 +1032,14 @@ public class MainActivity extends Activity {
     private void showPhotoStyle(boolean on) {
         bottomScrim.setVisibility(on ? View.VISIBLE : View.GONE);
         if (on) {
-            GradientDrawable box = new GradientDrawable();
-            box.setColor(BOX_COLOR);
-            box.setCornerRadius(px(BOX_RADIUS));
-            clockBox.setBackground(box);
+            if (clockGlass != null) {
+                clockBox.setBackground(clockGlass);
+            } else {
+                GradientDrawable box = new GradientDrawable();
+                box.setColor(BOX_COLOR);
+                box.setCornerRadius(px(BOX_RADIUS));
+                clockBox.setBackground(box);
+            }
         } else {
             clockBox.setBackground(null);
         }
