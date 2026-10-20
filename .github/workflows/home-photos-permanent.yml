@@ -1,0 +1,50 @@
+name: Permanent Home Photos APK
+
+# Only a deliberate, manual build on the default branch can use the private signing key.
+# Do not enable this on pull_request: unreviewed PR code must never access signing secrets.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  signed-home-photos:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Android SDK packages
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-34" "build-tools;34.0.0" >/dev/null
+      - name: Build with existing private signing key
+        env:
+          KEY_B64: ${{ secrets.HOME_PHOTOS_RELEASE_KEYSTORE_B64 }}
+          KEY_PASSWORD: ${{ secrets.HOME_PHOTOS_RELEASE_KEYSTORE_PASS }}
+        run: |
+          set -eu
+          [ -n "$KEY_B64" ] && [ -n "$KEY_PASSWORD" ] || {
+            echo "Configure HOME_PHOTOS_RELEASE_KEYSTORE_B64 and HOME_PHOTOS_RELEASE_KEYSTORE_PASS repository secrets before building." >&2
+            exit 1
+          }
+          umask 077
+          KEY_FILE="$RUNNER_TEMP/home-photos-stable.jks"
+          printf '%s' "$KEY_B64" | base64 -d > "$KEY_FILE"
+          [ -s "$KEY_FILE" ] || { echo "Signing key could not be decoded" >&2; exit 1; }
+          export HOME_PHOTOS_STABLE=1
+          export HOME_PHOTOS_KEYSTORE="$KEY_FILE"
+          export HOME_PHOTOS_KEYSTORE_PASS="$KEY_PASSWORD"
+          sh build-photos.sh
+          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose out-photos-stable/home-photos-stable.apk
+          "$ANDROID_HOME/build-tools/34.0.0/aapt" dump badging out-photos-stable/home-photos-stable.apk |
+            grep -F 'package: name='com.ansub.tvhome.photos.stable''
+          rm -f "$KEY_FILE"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: home-photos-permanent-signed-apk
+          path: out-photos-stable/home-photos-stable.apk
+          retention-days: 14
