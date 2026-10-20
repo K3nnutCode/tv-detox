@@ -1,4 +1,19 @@
-# Hybrid TV Preview v0.3 (isolated test app)
+# Hybrid TV Preview v0.3.1 (isolated test app)
+
+## v0.3.1 — large cinematic featured panel matching design reference
+
+The selected **Stremio / YouTube featured-content panel** is intentionally much larger, matching the area highlighted on the user's concept screenshot. At 1920x1080 the hero is approximately **1310px wide × 536px tall**, starting at **x=68, y=274** and ending **above the dock**. This is not the app tile's blue focus border.
+
+- When Stremio publishes artwork, it **fills the large featured panel** behind a dark left-to-right text gradient; the cinematic full-screen backdrop still works.
+- The series name, episode, real progress bar, elapsed/remaining time and percentage appear **on the left** in larger typography, with the right side reserved for artwork.
+- **YouTube and other apps** use the same large feature-panel size, but show honest fallback text without claiming inaccessible viewing data.
+- A visual hint says **Press OK to open Stremio**, rather than promising direct episode resume (which has not been verified).
+- The working TV dock focus behavior, family slideshow, weather, clock and safe Home behavior are unchanged. Prayer times are still pending official verification; v0.4 is reserved for that work.
+- Stremio's published artwork may be only 455x256 pixels, so the enlarged card will look softer than high-resolution studio concepts. No artwork is fabricated or downloaded.
+
+Reinstall this **new** preview APK as described below. Since CI rotates the disposable test signing key, return to permanent Home Photos, revoke the hybrid listener, **uninstall only `com.ansub.tvhome.hybrid.preview`**, then install the latest test APK. Do not uninstall Stremio or permanent Home Photos.
+
+## Earlier v0.3 visual refinements
 
 ## v0.3 — visual refinements for the TCL TV
 - Clock/date and greeting now use Brunei local time (`Asia/Brunei`). Greeting switches automatically: **Good Night** (22:00–04:59), **Good Morning** (05:00–11:59), **Good Afternoon** (12:00–17:59), **Good Evening** (18:00–21:59).
