@@ -1,4 +1,16 @@
-# Hybrid TV Preview v0.3.3 (isolated test app)
+# Hybrid TV Preview v0.3.4 (isolated test app)
+
+## v0.3.4 — Smart TV banners and wide branded app tiles
+
+- The bottom dock follows the approved Smart TV **landscape banner** mockup, not the mobile app-icon layout. Each installed app uses its real Android TV/Leanback activity banner first, then its application banner if supplied.
+- **No extra app-name captions beneath the tiles.** A native TV banner may include its own wordmark, which is the intended design.
+- If the app has no TV banner, a purpose-built horizontal brand tile is rendered: a compact emblem plus the app name inside the tile, not a giant square app icon. YouTube and Stremio get simple recognizable emblems and widescreen wordmarks. Other apps use a *small* installed icon plus wordmark only as the last resort.
+- System Inputs and Settings retain their clean icon-only control tiles. Dark branded gradients and blue focused outline remain.
+- No change to the 1310×536 large featured show panel, right-side Stremio art, status widgets, clock, weather, offline family slideshow, Stremio media-session access or remote navigation.
+- Prayer times are still intentionally hidden until official Brunei source validation. YouTube metadata remains a fallback.
+- This remains an isolated TV test package, **not** a HOME replacement. The CI test certificate changes on each build, so uninstall **only** `com.ansub.tvhome.hybrid.preview` first; never uninstall the permanent Home Photos launcher or Stremio.
+
+## Earlier v0.3.3 icon-only dock experiment
 
 ## v0.3.3 — icon-only Smart TV dock, plus v0.3.2 artwork improvements
 
