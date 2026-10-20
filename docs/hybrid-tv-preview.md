@@ -1,4 +1,42 @@
-# Hybrid TV Preview v0.3.4 (isolated test app)
+# Hybrid TV Preview v0.3.5 (isolated test app)
+
+## v0.3.5 — custom, edge-to-edge TV app cards matching the approved mockup
+
+The TV screenshot for v0.3.4 showed that the stock banners of YouTube,
+Google Play Store and Quick Panel contain fixed inner white/blank padding,
+causing them to float inside the landscape cards.
+
+For **YouTube, Stremio, Google Play Store and Quick Panel** the dock now
+renders self-contained **wide, fitted vector television artwork** using
+`TvDockArt.java`. The artwork is locally drawn: no image downloading,
+stock mobile icon squares, embedded white-margin TV banners, new network
+permission or user data collection. The treatment follows the approved mockup:
+- YouTube: dark red/black branded landscape tile, large centered logo and wordmark
+- Stremio: cinematic violet/navy, centered diamond-play mark and wordmark
+- Google Play Store: dark widescreen branded tile with multicolour Play mark
+- Quick Panel: blue gradient and large stacked-blue glyph, without a caption
+- Inputs and Settings: their existing TV controls/glyphs remain
+- Other installed TV apps: use their native Leanback banner (cropped to fill)
+  when available; otherwise a landscape label and small icon fallback
+
+No app-name captions are added below the tiles. The icon/wordmark built inside
+each branded banner is intentional. The normal blue focus outline and
+remote-navigation behavior remain unchanged.
+
+**Preserved:** 1310 × 536 cinematic featured panel, Stremio title/episode and
+progress metadata, 850px right-side artwork viewport, family photo slideshow,
+clock, Open-Meteo weather, safe app launch, and unverified prayer-time
+placeholder. This is a separate package `com.ansub.tvhome.hybrid.preview`
+with no HOME intent. Permanent Home Photos and other apps are unaffected.
+
+When installing a new preview build, use the GitHub Actions artifact from the
+latest successful v0.3.5 run. Return to permanent Home Photos, revoke the
+previous hybrid preview's broad notification access, uninstall **only**
+`com.ansub.tvhome.hybrid.preview`, install the new test APK, and re-grant
+READ_EXTERNAL_STORAGE for the photo slideshow. Notification access is optional
+and should be granted only while testing Stremio metadata.
+
+## Earlier v0.3.4 banner preference
 
 ## v0.3.4 — Smart TV banners and wide branded app tiles
 
