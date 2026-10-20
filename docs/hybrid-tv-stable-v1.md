@@ -136,6 +136,25 @@ adb shell dumpsys window | grep mCurrentFocus
 Expected foreground package:
 `com.ansub.tvhome.hybrid.stable`. Reboot only once this succeeds.
 After reboot run `adb shell dumpsys window | grep mCurrentFocus` again.
+**TCL compatibility gate:** the Android TV 11 emulator accepted
+`cmd package set-home-activity` and reported Hybrid TV through
+`cmd shortcut get-default-launcher`, yet privileged Google TV Launcher
+remained visually foreground after the Home key. This can be an emulator
+or OEM Home interception and does **not** prove TCL will behave likewise.
+On the real TCL, confirm both the registered selection and visible Home
+focus after pressing the Home button and after reboot:
+
+```bash
+adb shell cmd shortcut get-default-launcher
+adb shell input keyevent KEYCODE_HOME
+adb shell dumpsys window | grep mCurrentFocus
+```
+
+If Home Photos or a system launcher still appears, **do not** disable it.
+Use the on-screen Home chooser / TCL Settings if available. If neither
+method honors the selection, leave Home Photos as default until the
+device-specific restriction is diagnosed.
+
 Some TCL firmware does not permit shell default-HOME selection; if so,
 use its on-screen chooser or Settings instead. **Do not** disable the
 factory launcher, Stremio, Home Photos or other apps.
