@@ -137,13 +137,14 @@ final class WeatherWidget extends LinearLayout {
                         JSONObject current = new JSONObject(body.toString()).getJSONObject("current");
                         temp = current.getDouble("temperature_2m");
                         weatherCode = current.getInt("weather_code");
-                        if (!Double.isFinite(temp) || temp < -100 || temp > 100) {
+                        if (Double.isNaN(temp) || Double.isInfinite(temp) || temp < -100 || temp > 100) {
                             throw new java.io.IOException("Invalid temperature");
                         }
                     } finally {
                         connection.disconnect();
                     }
                 } catch (Exception e) {
+                    temp = Double.NaN;
                     Log.w(TAG, "Weather fetch failed (offline or provider unavailable)", e);
                 }
                 final double result = temp;
