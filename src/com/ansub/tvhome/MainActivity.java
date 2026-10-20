@@ -178,7 +178,7 @@ public class MainActivity extends Activity {
         stage.addView(scroller, new FrameLayout.LayoutParams(-1, -1));
         // The original com.ansub.tvhome keeps its original offline layout and permissions.
         // The new, separately installed Home Photos package adds weather to the upper right.
-        if ("com.ansub.tvhome.photos".equals(getPackageName())) {
+        if (getPackageName().startsWith("com.ansub.tvhome.photos")) {
             weatherWidget = new WeatherWidget(this, scale);
             FrameLayout.LayoutParams weatherParams = new FrameLayout.LayoutParams(
                     px(435), -2, Gravity.TOP | Gravity.RIGHT);
@@ -360,7 +360,7 @@ public class MainActivity extends Activity {
             try { label = pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString(); } catch (Exception ignored) {}
             // Apps without a TV banner get a plain tile with their normal icon.
             Drawable icon = null;
-            if (banner == null || "com.ansub.tvhome.photos".equals(getPackageName()))
+            if (banner == null || getPackageName().startsWith("com.ansub.tvhome.photos"))
                 try { icon = pm.getApplicationIcon(pkg); } catch (Exception ignored) {}
             int i = rowApps.size();
             rowApps.add(pkg);
@@ -391,7 +391,7 @@ public class MainActivity extends Activity {
         FrameLayout card = new FrameLayout(this);
         // Home Photos uses one consistent, translucent tile design so app banners don't compete
         // with the family photographs. The original offline launcher retains its old styling.
-        final boolean photosEdition = "com.ansub.tvhome.photos".equals(getPackageName());
+        final boolean photosEdition = getPackageName().startsWith("com.ansub.tvhome.photos");
         final boolean showBanner = banner != null && !photosEdition;
         final GradientDrawable bg = new GradientDrawable();
         bg.setCornerRadius(px(RADIUS));
