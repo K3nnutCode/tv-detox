@@ -27,7 +27,7 @@ mkdir -p "$OUT/classes" "$OUT/dex" "$OUT/gen/com/ansub/tvhome"
 {
   echo "package com.ansub.tvhome;"
   echo "final class Apps { static final String[] LIST = {"
-  grep -v '^[[:space:]]*#' "${APPS:-apps.txt}" | tr -d ' \t\r' | grep -v '^$' | sed 's/.*/    "&",/'
+  grep -v '^[[:space:]]*#' "${APPS:-apps-photos.txt}" | tr -d ' \t\r' | grep -v '^$' | sed 's/.*/    "&",/'
   echo "}; }"
 } > "$OUT/gen/com/ansub/tvhome/Apps.java"
 
