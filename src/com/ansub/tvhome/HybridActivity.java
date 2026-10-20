@@ -342,16 +342,15 @@ public final class HybridActivity extends Activity {
             String label = pkg;
             try { label = pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString(); }
             catch (Exception ignored) { }
-            Drawable banner = null;
-            try {
-                banner = pm.getActivityBanner(intent);
-                if (banner == null) banner = pm.getApplicationBanner(pkg);
-            } catch (Exception ignored) { }
+            // Prefer the installed app's launcher ICON over its TV banner.
+            // A TV banner frequently embeds the app name or wordmark, whereas
+            // the launcher icon is better suited to our deliberately icon-only dock.
             Drawable icon = null;
-            if (banner == null) {
-                try { icon = pm.getApplicationIcon(pkg); } catch (Exception ignored) { }
+            try { icon = pm.getApplicationIcon(pkg); } catch (Exception ignored) { }
+            if (icon == null) {
+                try { icon = pm.getActivityIcon(intent); } catch (Exception ignored) { }
             }
-            addDockTile(dock, pkg, label, banner != null ? banner : icon,
+            addDockTile(dock, pkg, label, icon,
                     () -> { intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); startActivity(intent); });
         }
         addDockTile(dock, "inputs", "Inputs", null, this::openFirstTvInput);
@@ -369,33 +368,27 @@ public final class HybridActivity extends Activity {
         tile.setClickable(true);
         // Accessible focus target; also allows a deterministic emulator TV test.
         tile.setContentDescription("Hybrid dock: " + label);
-        tile.setPadding(px(12), px(9), px(12), px(8));
-        tile.setBackground(round(0xD51B2A42, 21, 0x19FFFFFF));
+        // A single large centered logo, no label displayed below it.
+        // The app name remains available to accessibility services on the tile.
+        tile.setPadding(px(12), px(6), px(12), px(6));
+        tile.setBackground(dockSurface(pkg, false));
         tile.setTag(pkg);
         ImageView graphic = new ImageView(this);
         graphic.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        graphic.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
         if (icon != null) graphic.setImageDrawable(icon);
         else if ("inputs".equals(pkg)) graphic.setImageDrawable(new LineIcon(LineIcon.HDMI));
-        else graphic.setImageDrawable(new LineIcon(LineIcon.SETTINGS));
-        if (icon != null) tile.addView(graphic, new LinearLayout.LayoutParams(-1, px(80)));
-        else tile.addView(graphic, new LinearLayout.LayoutParams(px(60), px(60)));
-        TextView labelView = text(label, 24, Color.WHITE, true);
-        labelView.setGravity(Gravity.CENTER);
-        labelView.setSingleLine(true);
-        labelView.setEllipsize(TextUtils.TruncateAt.END);
-        LinearLayout.LayoutParams labelParams = new LinearLayout.LayoutParams(-1, -2);
-        labelParams.topMargin = px(4);
-        tile.addView(labelView, labelParams);
+        else if ("settings".equals(pkg)) graphic.setImageDrawable(new LineIcon(LineIcon.SETTINGS));
+        else graphic.setImageDrawable(new LineIcon(LineIcon.PLAY));
+        // Native installed app icons may have their own transparent insets;
+        // keep them large while preserving their aspect ratio on a TV screen.
+        int glyphSize = icon != null ? px(112) : px(88);
+        tile.addView(graphic, new LinearLayout.LayoutParams(glyphSize, glyphSize));
 
         tile.setOnFocusChangeListener((v, focused) -> {
-            // Keep TV dock dark, with a soft cool-blue focus glow instead of a white card.
-            GradientDrawable tileBackground = round(
-                    focused ? 0xF12D4364 : 0xD51B2A42, 21,
-                    focused ? 0xFF86BCE8 : 0x19FFFFFF);
-            tileBackground.setStroke(px(focused ? 3 : 1),
-                    focused ? 0xFF86BCE8 : 0x19FFFFFF);
-            tile.setBackground(tileBackground);
-            labelView.setTextColor(Color.WHITE);
+            // TV-style focus: readable logo, no white-label layout or text.
+            // Preserve the tested remote control / focus navigation behavior.
+            tile.setBackground(dockSurface(pkg, focused));
             tile.setElevation(focused ? px(10) : 0);
             tile.animate().scaleX(focused ? 1.045f : 1f)
                     .scaleY(focused ? 1.045f : 1f).setDuration(155).start();
@@ -411,6 +404,32 @@ public final class HybridActivity extends Activity {
         tp.leftMargin = px(8);
         tp.rightMargin = px(8);
         dock.addView(tile, tp);
+    }
+
+    /** A subtle gradient tile; branding comes from the installed app icon. */
+    private GradientDrawable dockSurface(String pkg, boolean focused) {
+        int top = 0xEA26354D;
+        int bottom = 0xE5172236;
+        if (STREMIO.equals(pkg)) {
+            top = 0xEA373159;
+            bottom = 0xE51A1C38;
+        } else if (YOUTUBE.equals(pkg)) {
+            top = 0xEA3C3441;
+            bottom = 0xE5222533;
+        } else if ("inputs".equals(pkg) || "settings".equals(pkg)) {
+            top = 0xEA343C47;
+            bottom = 0xE5202836;
+        }
+        if (focused) {
+            top = 0xF4465278;
+            bottom = 0xF1283556;
+        }
+        GradientDrawable background = new GradientDrawable(
+                GradientDrawable.Orientation.TL_BR, new int[]{top, bottom});
+        background.setCornerRadius(px(21));
+        background.setStroke(px(focused ? 3 : 1),
+                focused ? 0xFFA6C8FF : 0x35FFFFFF);
+        return background;
     }
 
     private void openFirstTvInput() {
