@@ -379,8 +379,8 @@ public final class HybridActivity extends Activity {
         tile.setContentDescription("Hybrid dock: " + label);
         tile.setTag(pkg);
         tile.setBackground(dockSurface(pkg, false));
-        // Focus border is a FOREGROUND, not a background stroke: original
-        // TV banners are drawn as child views and otherwise cover the border.
+        // Focus outline lives only in the foreground. Do NOT paint a blue
+        // background stroke as well, or TCL shows two offset rectangles.
         tile.setForeground(null);
 
         if (banner != null) {
@@ -448,7 +448,7 @@ public final class HybridActivity extends Activity {
 
         tile.setOnFocusChangeListener((v, focused) -> {
             tile.setBackground(dockSurface(pkg, focused));
-            // Draw the unbroken rounded outline ABOVE the native TV banner.
+            // One rounded highlight only; original TV banner stays unchanged.
             tile.setForeground(focused ? dockFocusOutline() : null);
             tile.setElevation(focused ? px(12) : 0);
             tile.animate().scaleX(focused ? 1.045f : 1f)
@@ -468,16 +468,15 @@ public final class HybridActivity extends Activity {
     }
 
     /**
-     * Foreground frame: inset keeps the entire stroke INSIDE the tile's
-     * rounded clip, including its left and right edges on TCL Android TV 11.
-     * Unlike a background stroke this renders AFTER the banner ImageView.
+     * A SINGLE focus stroke, drawn after the banner, inset enough that every
+     * pixel of its rounded corners fits inside TCL's rounded tile clip.
      */
     private Drawable dockFocusOutline() {
         GradientDrawable stroke = new GradientDrawable();
         stroke.setColor(Color.TRANSPARENT);
         stroke.setCornerRadius(px(18));
-        stroke.setStroke(px(4), 0xFFA6C8FF);
-        return new InsetDrawable(stroke, px(4));
+        stroke.setStroke(px(3), 0xFF95BDFB);
+        return new InsetDrawable(stroke, px(3));
     }
 
     /** Dark glossy backing; focus outline also overlays the child TV banner. */
@@ -501,8 +500,10 @@ public final class HybridActivity extends Activity {
         GradientDrawable background = new GradientDrawable(
                 GradientDrawable.Orientation.TL_BR, new int[]{top, bottom});
         background.setCornerRadius(px(21));
-        background.setStroke(px(focused ? 3 : 1),
-                focused ? 0xFFA6C8FF : 0x35FFFFFF);
+        // IMPORTANT: never draw a selected background border here.
+        // It sits UNDER the native banner and creates the second, cut-off
+        // line seen on TCL TV. Selected focus is foreground-only.
+        if (!focused) background.setStroke(px(1), 0x35FFFFFF);
         return background;
     }
 
