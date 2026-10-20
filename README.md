@@ -483,6 +483,69 @@ adb shell input keyevent KEYCODE_HOME
 
 The second app keeps a **separate** app-shortcut configuration because it is a separate Android package. The `apps-photos.txt` defaults place **YouTube and Stremio** first, with other installed TV apps filling remaining positions. Any additional saved arrangements must be configured again in Home Photos. No existing app is removed or disabled by this build or installation method.
 
+## Permanent Home Photos (safe migration)
+
+The permanent launcher is `com.ansub.tvhome.photos.stable` (shown on TV as **Home Photos**). It has the current widescreen TV banners, stronger frosted clock/weather panels, larger weather icons and photo slideshow. The separate package avoids the lost-signing-key problem for the previously installed `com.ansub.tvhome.photos` test APK. Installing it **does not remove or overwrite any working launcher**.
+
+### 1. Generate and protect a signing key (only once)
+
+Install JDK 17 on your **own computer** if `keytool` is not available. From Git Bash inside `~/tv-detox` run:
+
+```sh
+keytool -genkeypair -alias homephotosstable -keyalg RSA -keysize 3072 -validity 10000 -storetype PKCS12 -keystore home-photos-stable.jks -dname "CN=Home Photos"
+```
+
+Choose a strong private password when prompted; **never share the password or private key in chat, issues, commits or screenshots**. Keep at least two **secure private backups** of `home-photos-stable.jks` and your password. Losing the key will prevent future in-place updates.
+
+For a GitHub Actions build (so Windows does not need the Android SDK), copy the key as base64 to the clipboard using Git Bash:
+
+```sh
+base64 -w 0 home-photos-stable.jks | clip
+```
+
+In GitHub, open **repository Settings → Secrets and variables → Actions**, then add two *repository secrets*:
+
+- `HOME_PHOTOS_RELEASE_KEYSTORE_B64`: paste the base64 contents from your clipboard
+- `HOME_PHOTOS_RELEASE_KEYSTORE_PASS`: your private keystore password
+
+Do not commit these values. The workflow keeps the key out of build artifacts and refuses to produce a permanent APK if either secret is missing. The private key remains your responsibility to back up. Use a private computer, and clear the clipboard afterward.
+
+### 2. Produce a permanently signed APK
+
+After the reviewed PRs containing this workflow are merged into the repository's **default branch**, open **GitHub → Actions → Permanent Home Photos APK → Run workflow**. Download the **`home-photos-permanent-signed-apk`** artifact from the successful run and extract `home-photos-stable.apk`.
+
+Unlike the regular PR preview artifacts, this APK is signed with your **persistent** key from the GitHub repository secrets. The workflow runs only when manually started and does **not** run on pull requests.
+
+### 3. Install and test without changing the default Home
+
+```sh
+adb connect 192.168.68.55:5555
+adb install -r "$HOME/Downloads/home-photos-stable.apk"
+adb shell pm grant com.ansub.tvhome.photos.stable android.permission.READ_EXTERNAL_STORAGE
+adb shell am start -n com.ansub.tvhome.photos.stable/com.ansub.tvhome.MainActivity
+```
+
+Check the full photo rotation, clock, weather icon, app launch and HDMI switching before changing Home. If any command fails, **stop**. The old apps should remain usable.
+
+### 4. Make permanent only after it works
+
+```sh
+adb shell cmd package set-home-activity com.ansub.tvhome.photos.stable/com.ansub.tvhome.MainActivity
+adb shell input keyevent KEYCODE_HOME
+adb shell dumpsys window | grep mCurrentFocus
+```
+
+Confirm the focus shows `com.ansub.tvhome.photos.stable`. Only then, and only when you wish to tidy up the Home chooser, uninstall the **two temporary photo launchers**:
+
+```sh
+adb uninstall com.ansub.tvhome.photos.preview
+adb uninstall com.ansub.tvhome.photos
+```
+
+Keep the original `com.ansub.tvhome` installed as a fallback. Any app arrangement saved in the two temporary photo apps is not automatically transferred to the permanent package; its default shortcuts include YouTube and Stremio.
+
+**Important:** Do not use the old `install.sh` script, do not uninstall the original backup launcher, and never use a CI artifact signed with an ephemeral key as the permanent launcher. Future permanent updates must use this **same** keystore and increase the stable manifest versionCode.
+
 ## Contributing
 
 Pull requests are welcome for fixes that keep working on every TV. This project sticks to official apps and Android's own settings, so changes that add ad blockers or unofficial apps won't be merged. If you want those, fork it and make it yours.

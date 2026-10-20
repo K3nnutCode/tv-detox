@@ -34,6 +34,21 @@ if [ "${HOME_PHOTOS_PREVIEW:-0}" = "1" ]; then
   KEY_DEFAULT=home-photos-preview.jks
   KEY_ALIAS=homephotospreview
 fi
+if [ "${HOME_PHOTOS_STABLE:-0}" = "1" ]; then
+  [ "${HOME_PHOTOS_PREVIEW:-0}" != "1" ] || { echo "Cannot build preview and stable at the same time" >&2; exit 1; }
+  OUT=out-photos-stable
+  MANIFEST=AndroidManifest-photos-stable.xml
+  APK_NAME=home-photos-stable.apk
+  PACKAGE=com.ansub.tvhome.photos.stable
+  KEY_DEFAULT=home-photos-stable.jks
+  KEY_ALIAS=homephotosstable
+  # Release must NEVER generate a new key or fall back to the weak test password.
+  [ -n "${HOME_PHOTOS_KEYSTORE:-}" ] && [ -f "$HOME_PHOTOS_KEYSTORE" ] \
+    && [ -n "${HOME_PHOTOS_KEYSTORE_PASS:-}" ] || {
+      echo "Permanent signing key/password missing. Refusing unsigned or ephemeral release." >&2
+      exit 1
+    }
+fi
 rm -rf "$OUT"
 mkdir -p "$OUT/classes" "$OUT/dex" "$OUT/gen/com/ansub/tvhome"
 
