@@ -115,6 +115,7 @@ public class MainActivity extends Activity {
     private ImageView photoView;
     private View bottomScrim;
     private LinearLayout clockBox;
+    private WeatherWidget weatherWidget; // available only in the separately installed Home Photos edition
     private List<File> photos = new ArrayList<>();
     private int photoIndex = -1;
     private boolean slideshowOn;
@@ -175,6 +176,16 @@ public class MainActivity extends Activity {
         sp.gravity = Gravity.BOTTOM;
         stage.addView(bottomScrim, sp);
         stage.addView(scroller, new FrameLayout.LayoutParams(-1, -1));
+        // The original com.ansub.tvhome keeps its original offline layout and permissions.
+        // The new, separately installed Home Photos package adds weather to the upper right.
+        if ("com.ansub.tvhome.photos".equals(getPackageName())) {
+            weatherWidget = new WeatherWidget(this, scale);
+            FrameLayout.LayoutParams weatherParams = new FrameLayout.LayoutParams(
+                    px(435), -2, Gravity.TOP | Gravity.RIGHT);
+            weatherParams.topMargin = px(92);
+            weatherParams.rightMargin = px(96);
+            stage.addView(weatherWidget, weatherParams);
+        }
         setContentView(stage);
 
         IntentFilter f = new IntentFilter();
@@ -191,6 +202,7 @@ public class MainActivity extends Activity {
         slideshowOn = false;
         loadToken++;
         ui.removeCallbacksAndMessages(null);
+        if (weatherWidget != null) weatherWidget.stop();
         unregisterReceiver(packagesChanged);
         super.onDestroy();
     }
@@ -253,11 +265,13 @@ public class MainActivity extends Activity {
         View f = getCurrentFocus();
         if (f == null && !tiles.isEmpty()) tiles.get(0).requestFocus();
         startSlideshowWithPermission();
+        if (weatherWidget != null) weatherWidget.start();
     }
 
     @Override
     protected void onPause() {
         stopSlideshow();
+        if (weatherWidget != null) weatherWidget.stop();
         super.onPause();
     }
 
