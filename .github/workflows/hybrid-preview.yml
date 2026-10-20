@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - 'src/com/ansub/tvhome/HybridActivity.java'
+      - 'src/com/ansub/tvhome/PrayerSchedule2026.java'
+      - 'tests/com/ansub/tvhome/PrayerSchedule2026Test.java'
       - 'src/com/ansub/tvhome/TvDockArt.java'
       - 'src/com/ansub/tvhome/HybridSessionListener.java'
       - 'AndroidManifest-hybrid-preview.xml'
@@ -27,6 +29,15 @@ jobs:
           java-version: '17'
       - name: Android SDK 34
         run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-34" "build-tools;34.0.0" >/dev/null
+      - name: Validate official 2026 Brunei prayer timetable (offline)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/hybrid-prayer-test
+          javac -d /tmp/hybrid-prayer-test \
+            src/com/ansub/tvhome/PrayerSchedule2026.java \
+            tests/com/ansub/tvhome/PrayerSchedule2026Test.java
+          java -cp /tmp/hybrid-prayer-test com.ansub.tvhome.PrayerSchedule2026Test
       - name: Build independent hybrid APK
         run: sh build-hybrid-preview.sh
       - name: Verify safe manifest and signature
