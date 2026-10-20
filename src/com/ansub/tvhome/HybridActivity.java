@@ -5,6 +5,7 @@ import android.app.Activity;
 import android.app.NotificationManager;
 import android.content.ComponentName;
 import android.content.Intent;
+import android.content.res.ColorStateList;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.graphics.Bitmap;
@@ -36,15 +37,18 @@ import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.ProgressBar;
 import android.widget.TextClock;
 import android.widget.TextView;
 
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Calendar;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.TimeZone;
 
 /**
  * Isolated Smart TV hybrid prototype. No HOME intent, no access to permanent
@@ -59,12 +63,22 @@ public final class HybridActivity extends Activity {
     private static final String YOUTUBE = "com.google.android.youtube.tv";
     private static final int PHOTO_REQUEST = 31;
     private static final long SLIDE_MS = 60000L;
+    private static final long GREETING_REFRESH_MS = 60000L;
+    private static final TimeZone BRUNEI_ZONE = TimeZone.getTimeZone("Asia/Brunei");
     private final Handler ui = new Handler(Looper.getMainLooper());
     private final ArrayList<View> dockTiles = new ArrayList<>();
     private final ArrayList<File> photos = new ArrayList<>();
     private ImageView photo, cinematic, cardArtwork;
-    private TextView heading, details, footnote;
+    private TextView heading, details, footnote, greetingView;
+    private ProgressBar playbackProgress;
     private LinearLayout hero;
+    private final Runnable greetingTick = new Runnable() {
+        @Override public void run() {
+            if (!active) return;
+            updateGreeting();
+            ui.postDelayed(this, GREETING_REFRESH_MS);
+        }
+    };
     private FrameLayout stageView;
     private WeatherWidget weather;
     private boolean active;
@@ -100,11 +114,13 @@ public final class HybridActivity extends Activity {
         clock.setOrientation(LinearLayout.VERTICAL);
         clock.setGravity(Gravity.CENTER_VERTICAL);
         clock.setPadding(px(26), px(12), px(18), px(12));
-        TextView greeting = text("GOOD EVENING", 22, 0xCCFFFFFF, false);
-        clock.addView(greeting);
+        greetingView = text("GOOD NIGHT", 22, 0xCCFFFFFF, false);
+        updateGreeting();
+        clock.addView(greetingView);
         TextClock time = new TextClock(this);
         time.setFormat12Hour("h:mm");
         time.setFormat24Hour("HH:mm");
+        time.setTimeZone("Asia/Brunei");
         time.setTextColor(Color.WHITE);
         time.setTextSize(TypedValue.COMPLEX_UNIT_PX, px(118));
         time.setIncludeFontPadding(false);
@@ -112,6 +128,7 @@ public final class HybridActivity extends Activity {
         TextClock date = new TextClock(this);
         date.setFormat12Hour("EEEE, d MMMM");
         date.setFormat24Hour("EEEE, d MMMM");
+        date.setTimeZone("Asia/Brunei");
         date.setTextColor(0xDDFFFFFF);
         date.setTextSize(TypedValue.COMPLEX_UNIT_PX, px(24));
         clock.addView(date);
@@ -140,30 +157,45 @@ public final class HybridActivity extends Activity {
         hero = new LinearLayout(this);
         hero.setOrientation(LinearLayout.HORIZONTAL);
         hero.setGravity(Gravity.CENTER_VERTICAL);
-        hero.setPadding(px(32), px(22), px(32), px(22));
-        hero.setBackground(round(0xBD101B2D, 28, 0x3BFFFFFF));
+        hero.setPadding(px(26), px(18), px(26), px(18));
+        hero.setBackground(round(0xB9121B2A, 24, 0x36FFFFFF));
         cardArtwork = new ImageView(this);
         cardArtwork.setScaleType(ImageView.ScaleType.CENTER_CROP);
         cardArtwork.setVisibility(View.GONE);
-        LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(px(380), px(215));
-        cp.rightMargin = px(26);
+        LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(px(335), px(188));
+        cp.rightMargin = px(24);
         hero.addView(cardArtwork, cp);
         LinearLayout writing = new LinearLayout(this);
         writing.setOrientation(LinearLayout.VERTICAL);
         writing.setGravity(Gravity.CENTER_VERTICAL);
-        heading = text("", 43, Color.WHITE, true);
-        details = text("", 28, 0xFFE8EDF5, false);
-        footnote = text("", 22, 0xFFC4CFDD, false);
+        heading = text("", 38, Color.WHITE, true);
+        heading.setSingleLine(true);
+        heading.setEllipsize(TextUtils.TruncateAt.END);
+        details = text("", 25, 0xFFE8EDF5, false);
+        details.setSingleLine(true);
+        details.setEllipsize(TextUtils.TruncateAt.END);
+        footnote = text("", 21, 0xFFD1D9E7, false);
+        footnote.setSingleLine(true);
+        footnote.setEllipsize(TextUtils.TruncateAt.END);
         LinearLayout.LayoutParams gap1 = new LinearLayout.LayoutParams(-1, -2);
-        gap1.topMargin = px(10);
+        gap1.topMargin = px(7);
         writing.addView(heading);
         writing.addView(details, gap1);
+        playbackProgress = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
+        playbackProgress.setMax(1000); // Enough precision to show <1% progress.
+        playbackProgress.setProgress(0);
+        playbackProgress.setProgressTintList(ColorStateList.valueOf(0xFF8DC7F5));
+        playbackProgress.setProgressBackgroundTintList(ColorStateList.valueOf(0x5DFFFFFF));
+        playbackProgress.setVisibility(View.GONE);
+        LinearLayout.LayoutParams trackParams = new LinearLayout.LayoutParams(-1, px(7));
+        trackParams.topMargin = px(15);
+        writing.addView(playbackProgress, trackParams);
         LinearLayout.LayoutParams gap2 = new LinearLayout.LayoutParams(-1, -2);
-        gap2.topMargin = px(14);
+        gap2.topMargin = px(10);
         writing.addView(footnote, gap2);
         hero.addView(writing, new LinearLayout.LayoutParams(0, -1, 1f));
         hero.setVisibility(View.GONE);
-        stage.addView(hero, pos(px(100), px(285), px(1340), px(320)));
+        stage.addView(hero, pos(px(100), px(295), px(1210), px(256)));
 
         LinearLayout dock = new LinearLayout(this);
         dock.setOrientation(LinearLayout.HORIZONTAL);
@@ -236,6 +268,7 @@ public final class HybridActivity extends Activity {
 
     private void showIdle() {
         if (hero != null) hero.setVisibility(View.GONE);
+        if (playbackProgress != null) playbackProgress.setVisibility(View.GONE);
         if (cinematic != null) {
             cinematic.setVisibility(View.GONE);
             cinematic.setImageDrawable(null);
@@ -294,20 +327,15 @@ public final class HybridActivity extends Activity {
         // Accessible focus target; also allows a deterministic emulator TV test.
         tile.setContentDescription("Hybrid dock: " + label);
         tile.setPadding(px(12), px(9), px(12), px(8));
-        tile.setBackground(round(0xCC1F2F48, 21, 0x10FFFFFF));
+        tile.setBackground(round(0xD51B2A42, 21, 0x19FFFFFF));
         tile.setTag(pkg);
         ImageView graphic = new ImageView(this);
         graphic.setScaleType(ImageView.ScaleType.FIT_CENTER);
         if (icon != null) graphic.setImageDrawable(icon);
-        else {
-            // Simple neutral native drawable for system utility tiles.
-            GradientDrawable symbol = new GradientDrawable();
-            symbol.setColor(0xFF6686A6);
-            symbol.setCornerRadius(px(11));
-            graphic.setImageDrawable(symbol);
-        }
+        else if ("inputs".equals(pkg)) graphic.setImageDrawable(new LineIcon(LineIcon.HDMI));
+        else graphic.setImageDrawable(new LineIcon(LineIcon.SETTINGS));
         if (icon != null) tile.addView(graphic, new LinearLayout.LayoutParams(-1, px(80)));
-        else tile.addView(graphic, new LinearLayout.LayoutParams(px(46), px(46)));
+        else tile.addView(graphic, new LinearLayout.LayoutParams(px(60), px(60)));
         TextView labelView = text(label, 24, Color.WHITE, true);
         labelView.setGravity(Gravity.CENTER);
         labelView.setSingleLine(true);
@@ -317,11 +345,17 @@ public final class HybridActivity extends Activity {
         tile.addView(labelView, labelParams);
 
         tile.setOnFocusChangeListener((v, focused) -> {
-            tile.setBackground(round(focused ? 0xFFF2F5FA : 0xCC1F2F48,
-                    21, focused ? 0xFFFFCF72 : 0x10FFFFFF));
-            labelView.setTextColor(focused ? 0xFF0D1B2D : Color.WHITE);
-            tile.animate().scaleX(focused ? 1.05f : 1f)
-                    .scaleY(focused ? 1.05f : 1f).setDuration(145).start();
+            // Keep TV dock dark, with a soft cool-blue focus glow instead of a white card.
+            GradientDrawable tileBackground = round(
+                    focused ? 0xF12D4364 : 0xD51B2A42, 21,
+                    focused ? 0xFF86BCE8 : 0x19FFFFFF);
+            tileBackground.setStroke(px(focused ? 3 : 1),
+                    focused ? 0xFF86BCE8 : 0x19FFFFFF);
+            tile.setBackground(tileBackground);
+            labelView.setTextColor(Color.WHITE);
+            tile.setElevation(focused ? px(10) : 0);
+            tile.animate().scaleX(focused ? 1.045f : 1f)
+                    .scaleY(focused ? 1.045f : 1f).setDuration(155).start();
             if (focused) showSelection(pkg, label);
         });
         tile.setOnClickListener(v -> {
@@ -361,6 +395,7 @@ public final class HybridActivity extends Activity {
         cardArtwork.setVisibility(View.GONE);
         cardArtwork.setImageDrawable(null);
         hero.setVisibility(View.VISIBLE);
+        playbackProgress.setVisibility(View.GONE);
         heading.setText(label);
         if (STREMIO.equals(pkg)) {
             showStremio();
@@ -398,10 +433,19 @@ public final class HybridActivity extends Activity {
                 details.setText(episode == null ? "Stremio · Continue Watching" : episode);
                 long total = metadata.getLong(MediaMetadata.METADATA_KEY_DURATION);
                 long position = state == null ? -1 : state.getPosition();
-                footnote.setText((total > 0 && position >= 0)
-                        ? fmt(position) + " / " + fmt(total) + " · "
-                            + Math.max(0, Math.min(100, (int)(position * 100 / total))) + "% watched"
-                        : "Position / total duration unavailable");
+                if (total > 0 && position >= 0) {
+                    long watched = Math.min(position, total);
+                    int progress = (int) Math.max(0L, Math.min(1000L, watched * 1000L / total));
+                    playbackProgress.setProgress(progress);
+                    playbackProgress.setVisibility(View.VISIBLE);
+                    float percentage = 100f * watched / total;
+                    footnote.setText(fmt(watched) + " watched  ·  " +
+                            fmt(total - watched) + " left  ·  " +
+                            String.format(Locale.US, "%.1f%%", percentage));
+                } else {
+                    playbackProgress.setVisibility(View.GONE);
+                    footnote.setText("Playback duration unavailable");
+                }
                 Bitmap bmp = metadata.getBitmap(MediaMetadata.METADATA_KEY_DISPLAY_ICON);
                 if (bmp == null) bmp = metadata.getBitmap(MediaMetadata.METADATA_KEY_ART);
                 if (bmp == null) bmp = metadata.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART);
@@ -444,6 +488,9 @@ public final class HybridActivity extends Activity {
         super.onResume();
         active = true;
         weather.start();
+        updateGreeting();
+        ui.removeCallbacks(greetingTick);
+        ui.postDelayed(greetingTick, GREETING_REFRESH_MS);
         startPhotos();
         View focus = getCurrentFocus();
         if (focus != null && STREMIO.equals(focus.getTag())) showSelection(STREMIO, "Stremio");
@@ -455,6 +502,15 @@ public final class HybridActivity extends Activity {
         ui.removeCallbacksAndMessages(null);
         weather.stop();
         super.onPause();
+    }
+
+    private void updateGreeting() {
+        if (greetingView == null) return;
+        int hour = Calendar.getInstance(BRUNEI_ZONE).get(Calendar.HOUR_OF_DAY);
+        String greeting = hour < 5 || hour >= 22 ? "GOOD NIGHT"
+                : hour < 12 ? "GOOD MORNING"
+                : hour < 18 ? "GOOD AFTERNOON" : "GOOD EVENING";
+        greetingView.setText(greeting);
     }
 
     private File photoFolder() {
