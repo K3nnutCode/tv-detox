@@ -139,6 +139,37 @@ jobs:
             sh ci/photos-smoke-test.sh emulator-5554
             sh ci/photos-preview-smoke-test.sh emulator-5554
 
+  photos-stable-ci-test:
+    # Validate the future permanent package with a disposable CI key. Never publish this APK.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Android SDK packages
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-34" "build-tools;34.0.0" >/dev/null
+      - name: Verify permanent builds reject a missing release key
+        run: |
+          if HOME_PHOTOS_STABLE=1 sh build-photos.sh; then
+            echo "SECURITY FAILURE: permanent build accepted an absent signing key" >&2
+            exit 1
+          fi
+      - name: Compile stable-package APK with a disposable test-only key
+        run: |
+          set -eu
+          KEY_FILE="$RUNNER_TEMP/stable-test-only.jks"
+          keytool -genkeypair -keystore "$KEY_FILE" -storepass "test-only-password" -keypass "test-only-password" \
+            -alias homephotosstable -keyalg RSA -keysize 3072 -validity 365 \
+            -dname "CN=Home Photos CI Test" >/dev/null 2>&1
+          HOME_PHOTOS_STABLE=1 HOME_PHOTOS_KEYSTORE="$KEY_FILE" \
+            HOME_PHOTOS_KEYSTORE_PASS="test-only-password" sh build-photos.sh
+          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify out-photos-stable/home-photos-stable.apk
+          "$ANDROID_HOME/build-tools/34.0.0/aapt" dump badging out-photos-stable/home-photos-stable.apk |
+            grep -F "package: name='com.ansub.tvhome.photos.stable'"
+          rm -f "$KEY_FILE"
+
   release:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: [shellcheck, build, emulator-test]
