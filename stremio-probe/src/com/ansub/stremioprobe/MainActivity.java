@@ -14,6 +14,7 @@ import android.media.session.PlaybackState;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.view.Gravity;
+import android.view.KeyEvent;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
@@ -36,13 +37,22 @@ public final class MainActivity extends Activity {
     private TextView output;
     private ImageView artwork;
     private Button refreshButton;
+    private Button settingsButton;
+    private TextView navStatus;
 
     @Override public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         getWindow().getDecorView().setBackgroundColor(0xFF101827);
 
         ScrollView scroll = new ScrollView(this);
+        // TV remotes send D-pad events. ScrollView must not steal initial focus.
+        scroll.setFocusable(false);
+        scroll.setFocusableInTouchMode(false);
+        scroll.setDescendantFocusability(android.view.ViewGroup.FOCUS_AFTER_DESCENDANTS);
         LinearLayout root = new LinearLayout(this);
+        root.setFocusable(false);
+        root.setClipChildren(false);
+        root.setClipToPadding(false);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(dp(46), dp(28), dp(46), dp(24));
         scroll.addView(root);
@@ -65,15 +75,30 @@ public final class MainActivity extends Activity {
 
         LinearLayout buttons = new LinearLayout(this);
         buttons.setOrientation(LinearLayout.HORIZONTAL);
+        buttons.setClipChildren(false);
+        buttons.setClipToPadding(false);
         LinearLayout.LayoutParams buttonsParams = new LinearLayout.LayoutParams(-1, -2);
         buttonsParams.topMargin = dp(18);
         root.addView(buttons, buttonsParams);
         refreshButton = button("Refresh Stremio status");
         buttons.addView(refreshButton);
-        Button settings = button("Notification access settings");
+        settingsButton = button("Notification access settings");
         LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams(-2, -2);
         sp.leftMargin = dp(18);
-        buttons.addView(settings, sp);
+        buttons.addView(settingsButton, sp);
+
+        // Fixed IDs and explicit focus paths for Android TV's D-pad focus finder.
+        refreshButton.setId(View.generateViewId());
+        settingsButton.setId(View.generateViewId());
+        refreshButton.setNextFocusRightId(settingsButton.getId());
+        refreshButton.setNextFocusDownId(settingsButton.getId());
+        settingsButton.setNextFocusLeftId(refreshButton.getId());
+        settingsButton.setNextFocusUpId(refreshButton.getId());
+
+        navStatus = text("Remote: LEFT/RIGHT to choose · OK to select", 18, 0xFFFFD47C);
+        LinearLayout.LayoutParams navParams = new LinearLayout.LayoutParams(-1, -2);
+        navParams.topMargin = dp(16);
+        root.addView(navStatus, navParams);
 
         output = text("Waiting for check...", 23, TEXT);
         output.setLineSpacing(dp(7), 1f);
@@ -91,17 +116,54 @@ public final class MainActivity extends Activity {
 
         setContentView(scroll);
         refreshButton.setOnClickListener(v -> refresh());
-        settings.setOnClickListener(v -> {
+        settingsButton.setOnClickListener(v -> {
             try { startActivity(new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)); }
             catch (Exception e) { output.setText("This TV cannot open notification-access settings automatically. Please return to Home and use TV settings, or ask for the explicit ADB method."); }
         });
-        refreshButton.requestFocus();
+        // Set initial focus after the view hierarchy is attached to the window.
+        refreshButton.post(() -> {
+            if (getCurrentFocus() == null || getCurrentFocus() == scroll) {
+                refreshButton.requestFocus();
+            }
+        });
         refresh();
     }
 
     @Override protected void onResume() {
         super.onResume();
         if (output != null) refresh();
+    }
+
+    /**
+     * Deterministic navigation on TVs whose focus finder gives the ScrollView
+     * focus or does not draw a focused state for ordinary Android buttons.
+     * HOME, BACK and VOLUME are not intercepted.
+     */
+    @Override public boolean dispatchKeyEvent(KeyEvent event) {
+        if (refreshButton == null || settingsButton == null) {
+            return super.dispatchKeyEvent(event);
+        }
+        final int code = event.getKeyCode();
+        final boolean prev = code == KeyEvent.KEYCODE_DPAD_LEFT
+                || code == KeyEvent.KEYCODE_DPAD_UP;
+        final boolean next = code == KeyEvent.KEYCODE_DPAD_RIGHT
+                || code == KeyEvent.KEYCODE_DPAD_DOWN;
+        final boolean select = code == KeyEvent.KEYCODE_DPAD_CENTER
+                || code == KeyEvent.KEYCODE_ENTER
+                || code == KeyEvent.KEYCODE_NUMPAD_ENTER;
+
+        if (prev || next || select) {
+            if (event.getAction() == KeyEvent.ACTION_DOWN) {
+                if (prev) refreshButton.requestFocus();
+                else if (next) settingsButton.requestFocus();
+                else if (event.getRepeatCount() == 0) {
+                    View focus = getCurrentFocus();
+                    (focus == settingsButton ? settingsButton : refreshButton).performClick();
+                }
+            }
+            return true; // Consume UP as well to avoid a duplicate button click.
+        }
+        return super.dispatchKeyEvent(event);
     }
 
     private void refresh() {
@@ -228,13 +290,28 @@ public final class MainActivity extends Activity {
         b.setTextSize(16f);
         b.setAllCaps(false);
         b.setFocusable(true);
+        b.setFocusableInTouchMode(true);
         b.setTextColor(Color.WHITE);
-        GradientDrawable bg = new GradientDrawable();
-        bg.setColor(0xFF33465F);
-        bg.setCornerRadius(dp(12));
-        b.setBackground(bg);
-        b.setPadding(dp(20), dp(12), dp(20), dp(12));
+        b.setMinHeight(dp(68));
+        b.setPadding(dp(24), dp(14), dp(24), dp(14));
+        b.setOnFocusChangeListener((view, focused) -> {
+            updateButtonFocus(b, focused);
+            if (focused && navStatus != null) {
+                navStatus.setText("Selected: " + b.getText() + "  ·  Press OK to open");
+            }
+        });
+        updateButtonFocus(b, false);
         return b;
+    }
+
+    private void updateButtonFocus(Button b, boolean focused) {
+        GradientDrawable bg = new GradientDrawable();
+        bg.setCornerRadius(dp(13));
+        bg.setColor(focused ? 0xFF435F84 : 0xFF263950);
+        bg.setStroke(dp(focused ? 3 : 1), focused ? 0xFFFFD47C : 0xFF4E627D);
+        b.setBackground(bg);
+        b.setScaleX(focused ? 1.04f : 1f);
+        b.setScaleY(focused ? 1.04f : 1f);
     }
 
     private TextView text(String label, int sp, int color) {
