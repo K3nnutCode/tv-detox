@@ -21,6 +21,19 @@ JAR=$SDK/platforms/android-34/android.jar
 command -v keytool >/dev/null 2>&1 || { echo "Java keytool missing: install Java 17 and configure JAVA_HOME." >&2; exit 1; }
 
 OUT=out-photos
+MANIFEST=AndroidManifest-photos.xml
+APK_NAME=home-photos.apk
+PACKAGE=com.ansub.tvhome.photos
+KEY_DEFAULT=home-photos.jks
+KEY_ALIAS=homephotos
+if [ "${HOME_PHOTOS_PREVIEW:-0}" = "1" ]; then
+  OUT=out-photos-preview
+  MANIFEST=AndroidManifest-photos-preview.xml
+  APK_NAME=home-photos-preview.apk
+  PACKAGE=com.ansub.tvhome.photos.preview
+  KEY_DEFAULT=home-photos-preview.jks
+  KEY_ALIAS=homephotospreview
+fi
 rm -rf "$OUT"
 mkdir -p "$OUT/classes" "$OUT/dex" "$OUT/gen/com/ansub/tvhome"
 
@@ -31,7 +44,7 @@ mkdir -p "$OUT/classes" "$OUT/dex" "$OUT/gen/com/ansub/tvhome"
   echo "}; }"
 } > "$OUT/gen/com/ansub/tvhome/Apps.java"
 
-"$BT/aapt2" link -o "$OUT/base.apk" -I "$JAR" --manifest AndroidManifest-photos.xml --min-sdk-version 21 --target-sdk-version 34
+"$BT/aapt2" link -o "$OUT/base.apk" -I "$JAR" --manifest "$MANIFEST" --min-sdk-version 21 --target-sdk-version 34
 # shellcheck disable=SC2046
 javac -nowarn -Xlint:-options -encoding UTF-8 -source 1.8 -target 1.8 -bootclasspath "$JAR:$BT/core-lambda-stubs.jar" \
   -d "$OUT/classes" $(find src "$OUT/gen" -name "*.java")
@@ -41,14 +54,14 @@ cp "$OUT/base.apk" "$OUT/unsigned.apk"
 (cd "$OUT/dex" && zip -q ../unsigned.apk classes.dex)
 "$BT/zipalign" -f 4 "$OUT/unsigned.apk" "$OUT/aligned.apk"
 
-KS=${HOME_PHOTOS_KEYSTORE:-home-photos.jks}
+KS=${HOME_PHOTOS_KEYSTORE:-$KEY_DEFAULT}
 PASS=${HOME_PHOTOS_KEYSTORE_PASS:-tvhomephotos123}
 if [ ! -f "$KS" ]; then
-  keytool -genkeypair -keystore "$KS" -storepass "$PASS" -keypass "$PASS" -alias homephotos \
+  keytool -genkeypair -keystore "$KS" -storepass "$PASS" -keypass "$PASS" -alias "$KEY_ALIAS" \
     -keyalg RSA -keysize 3072 -validity 10000 -dname "CN=Home Photos" >/dev/null 2>&1
   echo "NEW signing key: $KS"
   echo "Back it up securely. Losing it would prevent future in-place updates!"
 fi
-"$BT/apksigner" sign --ks "$KS" --ks-pass "pass:$PASS" --out "$OUT/home-photos.apk" "$OUT/aligned.apk"
-echo "Built $OUT/home-photos.apk (package com.ansub.tvhome.photos)"
+"$BT/apksigner" sign --ks "$KS" --ks-pass "pass:$PASS" --out "$OUT/$APK_NAME" "$OUT/aligned.apk"
+echo "Built $OUT/$APK_NAME (package $PACKAGE)"
 echo "Your existing com.ansub.tvhome APK and settings were not changed."
