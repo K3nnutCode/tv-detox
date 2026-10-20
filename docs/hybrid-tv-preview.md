@@ -1,4 +1,16 @@
-# Hybrid TV Preview v0.3.2 (isolated test app)
+# Hybrid TV Preview v0.3.3 (isolated test app)
+
+## v0.3.3 — icon-only Smart TV dock, plus v0.3.2 artwork improvements
+
+- Dock tiles now show **only one large centered native app logo/icon**. There is **no app-name caption underneath** any app, Inputs or Settings tile.
+- App names are still used internally and as the tile's accessibility description; keyboard/D-pad accessibility and explicit OK-to-open functionality are retained.
+- Uses `PackageManager.getApplicationIcon()` rather than TV banners by default, since banners often contain built-in text/wordmarks. Some third-party app icons may still have embedded letters within the artwork, which the launcher cannot independently remove.
+- Tiles use subtle brand-adjacent neutral/navy/purple gradient surfaces, with the existing blue focus outline and safe remote navigation.
+- **Large cinematic content hero stays at 1310 × 536** with its improved right-side key-art framing and smooth left-to-right text gradient. Do not shrink the featured area.
+- Family slideshow, Brunei clock, weather, Stremio media-session artwork/progress, YouTube fallback and prayer-verification placeholder remain unchanged.
+- Still only the separate `com.ansub.tvhome.hybrid.preview` test package, not a Home launcher. A disposable key is generated for each GitHub build; uninstall *only* the old preview, then install this update.
+
+## Earlier v0.3.2 artwork refinements
 
 ## v0.3.2 — right-side art framing and smooth cinematic fade
 
