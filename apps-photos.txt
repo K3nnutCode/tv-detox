@@ -1,0 +1,3 @@
+# Starter shortcuts for Home Photos. Other installed TV apps fill remaining spots.
+com.google.android.youtube.tv
+com.stremio.one
