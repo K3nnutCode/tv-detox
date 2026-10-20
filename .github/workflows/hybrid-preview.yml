@@ -77,6 +77,29 @@ jobs:
             adb shell am start -W -n com.ansub.tvhome.hybrid.preview/com.ansub.tvhome.HybridActivity
             adb shell pm path com.ansub.tvhome.hybrid.preview | grep -q base.apk
             adb shell dumpsys window | grep mCurrentFocus | grep -q com.ansub.tvhome.hybrid.preview
+            # Root landing view starts unfocused on an app; DOWN must enter dock.
+            adb shell input keyevent KEYCODE_DPAD_DOWN
+            adb shell uiautomator dump /sdcard/hybrid-focus.xml >/dev/null
+            first=$(adb shell cat /sdcard/hybrid-focus.xml | grep -oE 'content-desc="Hybrid dock: [^"]*"[^>]*focused="true"' | head -n1)
+            test -n "$first"
+            echo "DOWN focused: $first"
+            # RIGHT must move focus to a different app/utility tile.
+            adb shell input keyevent KEYCODE_DPAD_RIGHT
+            adb shell uiautomator dump /sdcard/hybrid-focus.xml >/dev/null
+            second=$(adb shell cat /sdcard/hybrid-focus.xml | grep -oE 'content-desc="Hybrid dock: [^"]*"[^>]*focused="true"' | head -n1)
+            test -n "$second"
+            test "$first" != "$second"
+            echo "RIGHT focused: $second"
+            # LEFT must return to the original tile.
+            adb shell input keyevent KEYCODE_DPAD_LEFT
+            adb shell uiautomator dump /sdcard/hybrid-focus.xml >/dev/null
+            third=$(adb shell cat /sdcard/hybrid-focus.xml | grep -oE 'content-desc="Hybrid dock: [^"]*"[^>]*focused="true"' | head -n1)
+            test "$third" = "$first"
+            # UP returns to the full-screen family-photo view, no dock tile focused.
+            adb shell input keyevent KEYCODE_DPAD_UP
+            adb shell uiautomator dump /sdcard/hybrid-focus.xml >/dev/null
+            if adb shell cat /sdcard/hybrid-focus.xml | grep -qE 'content-desc="Hybrid dock: [^"]*"[^>]*focused="true"'; then exit 1; fi
+            # DOWN + RIGHT leaves the cinematic/focus state ready for screenshot.
             adb shell input keyevent KEYCODE_DPAD_DOWN
             adb shell input keyevent KEYCODE_DPAD_RIGHT
             adb exec-out screencap -p > hybrid-tv-screenshot.png
