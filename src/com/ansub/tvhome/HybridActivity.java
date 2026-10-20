@@ -15,6 +15,7 @@ import android.graphics.PorterDuff;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.InsetDrawable;
 import android.graphics.drawable.TransitionDrawable;
 import android.media.MediaMetadata;
 import android.media.session.MediaController;
@@ -378,12 +379,16 @@ public final class HybridActivity extends Activity {
         tile.setContentDescription("Hybrid dock: " + label);
         tile.setTag(pkg);
         tile.setBackground(dockSurface(pkg, false));
+        // Focus border is a FOREGROUND, not a background stroke: original
+        // TV banners are drawn as child views and otherwise cover the border.
+        tile.setForeground(null);
 
         if (banner != null) {
             // Fill the full landscape card with the actual Android TV banner.
             // CENTER_CROP maintains the native proportions (unlike FIT_XY)
             // while removing the letterbox bars caused by FIT_CENTER.
-            // Only a 2px inset is retained for the focus ring.
+            // Keep a 2px image inset. The selected border is overlaid
+            // independently on top of the artwork (not behind the banner).
             ImageView artwork = new ImageView(this);
             artwork.setImageDrawable(banner);
             artwork.setScaleType(ImageView.ScaleType.CENTER_CROP);
@@ -443,6 +448,8 @@ public final class HybridActivity extends Activity {
 
         tile.setOnFocusChangeListener((v, focused) -> {
             tile.setBackground(dockSurface(pkg, focused));
+            // Draw the unbroken rounded outline ABOVE the native TV banner.
+            tile.setForeground(focused ? dockFocusOutline() : null);
             tile.setElevation(focused ? px(12) : 0);
             tile.animate().scaleX(focused ? 1.045f : 1f)
                     .scaleY(focused ? 1.045f : 1f).setDuration(155).start();
@@ -460,7 +467,20 @@ public final class HybridActivity extends Activity {
         dock.addView(tile, tp);
     }
 
-    /** Dark glossy backing and bright TV-remote selection outline. */
+    /**
+     * Foreground frame: inset keeps the entire stroke INSIDE the tile's
+     * rounded clip, including its left and right edges on TCL Android TV 11.
+     * Unlike a background stroke this renders AFTER the banner ImageView.
+     */
+    private Drawable dockFocusOutline() {
+        GradientDrawable stroke = new GradientDrawable();
+        stroke.setColor(Color.TRANSPARENT);
+        stroke.setCornerRadius(px(18));
+        stroke.setStroke(px(4), 0xFFA6C8FF);
+        return new InsetDrawable(stroke, px(4));
+    }
+
+    /** Dark glossy backing; focus outline also overlays the child TV banner. */
     private GradientDrawable dockSurface(String pkg, boolean focused) {
         int top = 0xEA26354D;
         int bottom = 0xE5172236;
