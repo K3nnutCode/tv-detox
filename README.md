@@ -394,6 +394,30 @@ It's one screen of plain Java, no libraries, no Gradle. The background is drawn 
 
 </details>
 
+### Photo slideshow on Android 11 / Android TV
+
+Place JPG, PNG or WebP files in `/sdcard/Pictures/TVWallpapers/`. The home screen displays these behind the clock and tiles, changing images every 60 seconds.
+
+For Android 11 (SDK 30), the installed app **must declare and be granted** `READ_EXTERNAL_STORAGE`. The home screen asks for read-only photo access once when the shared wallpaper folder exists. You can instead grant it from a connected PC after installing the updated APK:
+
+```sh
+adb shell pm grant com.ansub.tvhome android.permission.READ_EXTERNAL_STORAGE
+adb shell am force-stop com.ansub.tvhome
+adb shell input keyevent KEYCODE_HOME
+```
+
+Confirm that the installed APK actually contains the permission before attempting to grant it:
+
+```sh
+adb shell dumpsys package com.ansub.tvhome | grep -E 'versionCode=|READ_EXTERNAL_STORAGE'
+adb shell ls -lh /sdcard/Pictures/TVWallpapers/
+adb logcat -d -s TVHomePhotos:V
+```
+
+If the grant says **"has not requested permission"**, the TV is still running an APK built without the permission: rebuild and install the updated APK first.
+
+**Preserve your existing home screen:** Install a rebuild only with the **same signing key** as the installed app (keep the original `key.jks` / release keystore). Use `adb install -r out/tvhome.apk` for an in-place update. If Android reports `INSTALL_FAILED_UPDATE_INCOMPATIBLE`, **stop**: do not uninstall your home screen or run an install script that automatically uninstalls it, as that may reset app preferences and leave the TV without its configured Home app.
+
 ## Contributing
 
 Pull requests are welcome for fixes that keep working on every TV. This project sticks to official apps and Android's own settings, so changes that add ad blockers or unofficial apps won't be merged. If you want those, fork it and make it yours.
