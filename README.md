@@ -418,6 +418,50 @@ If the grant says **"has not requested permission"**, the TV is still running an
 
 **Preserve your existing home screen:** Install a rebuild only with the **same signing key** as the installed app (keep the original `key.jks` / release keystore). Use `adb install -r out/tvhome.apk` for an in-place update. If Android reports `INSTALL_FAILED_UPDATE_INCOMPATIBLE`, **stop**: do not uninstall your home screen or run an install script that automatically uninstalls it, as that may reset app preferences and leave the TV without its configured Home app.
 
+## Home Photos: separate photo launcher with live weather
+
+**Home Photos** is a second Android TV home app, separate from the existing `com.ansub.tvhome`. Its package is `com.ansub.tvhome.photos`. It preserves the slideshow, rounded clock box, app tiles and settings shortcuts and adds a small weather panel at the upper-right.
+
+- **Weather:** temperature and conditions for **Bandar Seri Begawan, Brunei**, using a **fixed city location**, not your device's location. Fetched from [Open-Meteo](https://open-meteo.com/) over HTTPS about every 30 minutes **while Home Photos is visible**. Free Open-Meteo API use is for non-commercial purposes. [Weather data: Open-Meteo.com](https://open-meteo.com/) (CC BY 4.0).
+- **Network privacy:** the *only* network call in Home Photos source code is to the Open-Meteo weather endpoint. The manifest includes Android's general `INTERNET` permission, which cannot technically be limited to only one website by a manifest. No location permission, user account, advertising SDK or analytics. If the TV is offline, the most recent reading is labeled “saved.”
+- **Photos:** Android 11's read-only storage permission lets the app display JPG, PNG or WebP images from `/sdcard/Pictures/TVWallpapers/` every 60 seconds. The clock gets a rounded translucent dark background when photos appear.
+
+### Safe install: do NOT uninstall the existing home screen
+
+From a computer with Java 17 and Android SDK platform and build-tools 34:
+
+```sh
+git fetch origin
+git switch feature/home-photos-live-weather
+sh build-photos.sh
+adb connect 192.168.68.55:5555
+adb install -r out-photos/home-photos.apk
+adb shell am start -n com.ansub.tvhome.photos/com.ansub.tvhome.MainActivity
+```
+
+- The first build creates **`home-photos.jks`**. Back up this file in a private, safe location. Keep it and its password for all subsequent builds. Losing it means Android will reject in-place updates to the new Home Photos package.
+- Only `build-photos.sh` produces the separately signed new APK. It never overwrites the original `out/tvhome.apk`.
+- Use **`adb install -r`**, **not `install.sh`**. The original script targets the old launcher and may uninstall apps on signature mismatches. If `adb install` reports a signing conflict, STOP, do not uninstall anything.
+- If the TV doesn't request photo permission automatically, use `adb shell pm grant com.ansub.tvhome.photos android.permission.READ_EXTERNAL_STORAGE` and reopen Home Photos.
+- Weather will appear after the first successful HTTPS request, if the TV has internet access. See `adb logcat -d -s HomePhotosWeather:V TVHomePhotos:V` for diagnostics.
+- The GitHub Actions artifact is for automated testing and uses an **ephemeral signing key** unless you separately configure persistent signing. **Do not use the CI-generated APK as your permanent installation** if you want to update Home Photos without reinstalling in the future.
+
+When satisfied with the new app, you may choose it in Android TV Home settings or run:
+
+```sh
+adb shell cmd package set-home-activity com.ansub.tvhome.photos/com.ansub.tvhome.MainActivity
+adb shell input keyevent KEYCODE_HOME
+```
+
+To switch back to the **still-installed** original launcher:
+
+```sh
+adb shell cmd package set-home-activity com.ansub.tvhome/com.ansub.tvhome.MainActivity
+adb shell input keyevent KEYCODE_HOME
+```
+
+The second app keeps a **separate** app-shortcut configuration because it is a separate Android package. The source includes existing YouTube/Stremio shortcut support, but any saved tiles must be set up again in Home Photos. No existing app is removed or disabled by this build or installation method.
+
 ## Contributing
 
 Pull requests are welcome for fixes that keep working on every TV. This project sticks to official apps and Android's own settings, so changes that add ad blockers or unofficial apps won't be merged. If you want those, fork it and make it yours.
