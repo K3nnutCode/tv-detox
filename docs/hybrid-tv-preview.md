@@ -1,4 +1,38 @@
-# Hybrid TV Preview v0.3.5 (isolated test app)
+# Hybrid TV Preview v0.3.6 (isolated test app)
+
+## v0.3.6 — restore ORIGINAL Android TV banners fitted to their dock tiles
+
+After trying the custom vector banners in v0.3.5, the user explicitly asked
+to **revert to each installed app's own original Android TV banner**. This
+release removes the hand-drawn `TvDockArt` replacements entirely.
+
+- YouTube, Stremio, Google Play Store and Quick Panel use **their original
+  Android TV activity banner**, or the application banner if that is all the
+  installed APK provides.
+- Display uses `ImageView.ScaleType.CENTER_CROP` with just a 2px inset
+  around the landscape tile. This **fills the box** while preserving banner
+  aspect ratio and avoiding the inset-letterboxing of `FIT_CENTER`.
+  Depending on asset aspect ratio, a small amount of the **top/bottom may be
+  cropped**. Built-in white backgrounds within an original app banner are
+  part of the banner and intentionally not erased.
+- If an app provides no banner, a landscape row with a small native icon and
+  wordmark inside the tile remains the last resort.
+- Inputs and Settings remain their clean system TV glyphs.
+- The existing six-tile dock geometry and remote focus animation **do not
+  change**. There is **no app-name caption beneath** the banner.
+- Unchanged: the large cinematic Stremio featured panel (1310 × 536 reference),
+  right-side artwork, video progress, photo slideshow, time/weather, existing
+  privacy boundary, optional media-session access and unverified prayer
+  timetable placeholder.
+
+This APK remains only the separate `com.ansub.tvhome.hybrid.preview` test
+application and does not register as system Home. For safe upgrades, first
+return to permanent Home Photos, revoke the optional preview notification
+listener, uninstall **only the old preview** (GitHub uses a new ephemeral
+signing key on every run), install this APK and re-grant read-only photo
+access. Do not uninstall permanent Home Photos or Stremio.
+
+## Earlier v0.3.5 custom artwork experiment
 
 ## v0.3.5 — custom, edge-to-edge TV app cards matching the approved mockup
 
