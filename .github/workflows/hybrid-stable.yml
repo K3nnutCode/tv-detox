@@ -1,0 +1,155 @@
+name: Hybrid TV v1.0 Stable — test and persistent-key release
+
+on:
+  push:
+    branches:
+      - feature/hybrid-tv-stable-v1
+    paths:
+      - 'AndroidManifest-hybrid-stable.xml'
+      - 'build-hybrid-stable.sh'
+      - '.github/workflows/hybrid-stable.yml'
+      - 'src/com/ansub/tvhome/**'
+      - 'apps-photos.txt'
+  pull_request:
+    paths:
+      - 'AndroidManifest-hybrid-stable.xml'
+      - 'build-hybrid-stable.sh'
+      - '.github/workflows/hybrid-stable.yml'
+      - 'src/com/ansub/tvhome/**'
+      - 'apps-photos.txt'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-smoke:
+    name: Check v1 source and build throwaway-key emulator APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Android SDK 34
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-34" "build-tools;34.0.0" >/dev/null
+      - name: Verify original official Brunei-Muara timetable offline
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/stable-prayer-tests
+          javac -d /tmp/stable-prayer-tests src/com/ansub/tvhome/PrayerSchedule2026.java tests/com/ansub/tvhome/PrayerSchedule2026Test.java
+          java -cp /tmp/stable-prayer-tests com.ansub.tvhome.PrayerSchedule2026Test
+      - name: Build disposable-key smoke APK (NOT for installation on the TCL)
+        env:
+          MODE: smoke
+        run: sh build-hybrid-stable.sh
+      - name: Verify HOME candidate, fallback safety, APK signature and package
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=out-hybrid-stable/hybrid-tv-v1-smoke-NOT-RELEASE.apk
+          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify "$APK"
+          "$ANDROID_HOME/build-tools/34.0.0/aapt" dump badging "$APK" | grep -F "package: name='com.ansub.tvhome.hybrid.stable'"
+          "$ANDROID_HOME/build-tools/34.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml > /tmp/hybrid-stable-manifest.txt
+          grep -q 'android.intent.category.HOME' /tmp/hybrid-stable-manifest.txt
+          grep -q 'android.intent.category.DEFAULT' /tmp/hybrid-stable-manifest.txt
+          grep -q 'android.intent.category.LEANBACK_LAUNCHER' /tmp/hybrid-stable-manifest.txt
+          ! grep -q 'android.permission.WRITE_EXTERNAL_STORAGE' /tmp/hybrid-stable-manifest.txt
+          ! grep -q 'android.permission.MANAGE_EXTERNAL_STORAGE' /tmp/hybrid-stable-manifest.txt
+          ! grep -q 'android.permission.QUERY_ALL_PACKAGES' /tmp/hybrid-stable-manifest.txt
+          echo 'PASS: opt-in HOME candidate; distinct app ID; Home Photos unchanged'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hybrid-tv-v1-smoke-not-release
+          path: out-hybrid-stable/hybrid-tv-v1-smoke-NOT-RELEASE.apk
+          retention-days: 3
+
+  android-tv-11-smoke-test:
+    name: Verify Android TV 11 launch and remote navigation
+    needs: build-smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: hybrid-tv-v1-smoke-not-release
+          path: out-hybrid-stable
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+      - name: Install manually, test D-pad, and verify HOME button is still handled by Android
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: android-tv
+          arch: x86
+          profile: tv_1080p
+          disable-animations: true
+          script: |
+            adb install out-hybrid-stable/hybrid-tv-v1-smoke-NOT-RELEASE.apk
+            adb shell am start -W -n com.ansub.tvhome.hybrid.stable/com.ansub.tvhome.HybridActivity
+            adb shell pm path com.ansub.tvhome.hybrid.stable | grep -q base.apk
+            adb shell dumpsys window | grep mCurrentFocus | grep -q com.ansub.tvhome.hybrid.stable
+            adb shell input keyevent KEYCODE_DPAD_DOWN
+            adb shell uiautomator dump /sdcard/v1-focus.xml >/dev/null
+            adb shell cat /sdcard/v1-focus.xml | grep -oE 'content-desc="Hybrid dock: [^"]*"[^>]*focused="true"' > focus-down.txt
+            test -s focus-down.txt
+            adb shell input keyevent KEYCODE_DPAD_RIGHT
+            adb shell uiautomator dump /sdcard/v1-focus.xml >/dev/null
+            adb shell cat /sdcard/v1-focus.xml | grep -oE 'content-desc="Hybrid dock: [^"]*"[^>]*focused="true"' > focus-right.txt
+            test -s focus-right.txt
+            ! cmp -s focus-down.txt focus-right.txt
+            adb shell input keyevent KEYCODE_DPAD_LEFT
+            adb shell uiautomator dump /sdcard/v1-focus.xml >/dev/null
+            adb shell cat /sdcard/v1-focus.xml | grep -oE 'content-desc="Hybrid dock: [^"]*"[^>]*focused="true"' > focus-left.txt
+            cmp -s focus-down.txt focus-left.txt
+            adb shell input keyevent KEYCODE_DPAD_UP
+            adb shell uiautomator dump /sdcard/v1-focus.xml >/dev/null
+            if adb shell cat /sdcard/v1-focus.xml | grep -qE 'content-desc="Hybrid dock: [^"]*"[^>]*focused="true"'; then exit 1; fi
+            adb shell input keyevent KEYCODE_DPAD_DOWN
+            adb exec-out screencap -p > hybrid-tv-v1-emulator.png
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: hybrid-tv-v1-emulator-screenshot
+          path: hybrid-tv-v1-emulator.png
+
+  release-signed:
+    name: Stable APK — same owner-held signing key on every update
+    needs: [build-smoke, android-tv-11-smoke-test]
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Android SDK 34
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-34" "build-tools;34.0.0" >/dev/null
+      - name: Build release signed using OWNER'S persistent keystore secrets
+        env:
+          MODE: release
+          HYBRID_RELEASE_KEYSTORE_B64: ${{ secrets.HYBRID_RELEASE_KEYSTORE_B64 }}
+          HYBRID_RELEASE_KEYSTORE_PASS: ${{ secrets.HYBRID_RELEASE_KEYSTORE_PASS }}
+          HYBRID_RELEASE_KEY_ALIAS: ${{ secrets.HYBRID_RELEASE_KEY_ALIAS }}
+          HYBRID_RELEASE_KEY_PASS: ${{ secrets.HYBRID_RELEASE_KEY_PASS }}
+        run: sh build-hybrid-stable.sh
+      - name: Verify v1.0 package and print public certificate fingerprint for tracking
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=out-hybrid-stable/hybrid-tv-v1.0.0.apk
+          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --print-certs "$APK"
+          "$ANDROID_HOME/build-tools/34.0.0/aapt" dump badging "$APK" | grep -F "package: name='com.ansub.tvhome.hybrid.stable'"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hybrid-tv-v1.0.0-persistently-signed
+          path: out-hybrid-stable/hybrid-tv-v1.0.0.apk
+          retention-days: 30
