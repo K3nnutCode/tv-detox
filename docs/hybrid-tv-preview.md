@@ -1,4 +1,48 @@
-# Hybrid TV Preview v0.4.0 (isolated test app)
+# Hybrid TV Preview v0.4.1 (isolated test app)
+
+## v0.4.1 — weather reliability after TCL HTTPS handshake timeout
+
+An actual TCL Android TV 11 `adb logcat` trace from 21 October 2026
+reported `java.net.SocketTimeoutException: Read timed out` while the
+Open-Meteo HTTPS TLS handshake was still underway. This was **not** a
+prayer-timetable or UI-rendering failure. The seven-second TLS read timeout
+and 30-minute retry-on-failure delay from the shared Home Photos component
+could leave the fresh v0.4 preview displaying "--°C" for a long time.
+
+v0.4.1 uses the new `HybridWeatherWidget.java` **only in the isolated
+Hybrid TV Preview app**. `WeatherWidget.java` for permanent Home Photos
+is unchanged.
+
+- Weather source unchanged: original Open-Meteo HTTPS forecast request
+  using fixed Bandar Seri Begawan coordinates (no device location).
+- Network connection timeout 7s -> **15s**; HTTPS read/TLS timeout 7s -> **20s**.
+- Failed requests retry after **1 minute**, **3 minutes**, **10 minutes**,
+  then every **30 minutes** while preview remains active.
+- Successful responses return to the original **30-minute refresh interval**.
+- With no valid cached weather, status says **Weather reconnecting…**
+  rather than making up temperatures. With cached data it shows the
+  previous temperature marked **saved**.
+- Logging uses distinct `HybridWeather` tag to make diagnosing further
+  TLS/network errors easy.
+- No new internet destinations, permissions, location access, or other
+  app connectivity. The 2026 Brunei-Muara offline prayer timetable,
+  dynamic Stremio artwork, TV dock/focus border, family slideshow,
+  Brunei greeting and default Home Photos are unchanged.
+
+**Note:** Longer timeouts/retries make the widget resilient to *transient*
+handshake delays; they cannot override TV firmware TLS errors, DNS outages
+or routing blocks. The real TCL must be tested after installation. If
+still offline, run `adb logcat -d -s HybridWeather:W '*:S'` and inspect
+the root exception before changing endpoints or certificates.
+
+v0.4.1 remains a non-HOME test package
+`com.ansub.tvhome.hybrid.preview`. Since the preview APK receives a new
+throwaway signing key each run, return to permanent Home Photos,
+revoke optional notification-listener access and uninstall **only**
+the previous hybrid preview before installing and granting photo-read
+permission again.
+
+## Previous v0.4.0 prayer widget
 
 ## v0.4.0 — Brunei-Muara current / next prayer widget
 
