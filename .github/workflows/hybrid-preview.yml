@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'src/com/ansub/tvhome/HybridActivity.java'
+      - 'src/com/ansub/tvhome/TvWallpaperView.java'
       - 'src/com/ansub/tvhome/HybridWeatherWidget.java'
       - 'src/com/ansub/tvhome/PrayerSchedule2026.java'
       - 'tests/com/ansub/tvhome/PrayerSchedule2026Test.java'
