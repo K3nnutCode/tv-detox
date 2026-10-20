@@ -19,6 +19,9 @@ import android.media.MediaMetadata;
 import android.media.session.MediaController;
 import android.media.session.MediaSessionManager;
 import android.media.session.PlaybackState;
+import android.media.tv.TvContract;
+import android.media.tv.TvInputInfo;
+import android.media.tv.TvInputManager;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
@@ -210,8 +213,7 @@ public final class HybridActivity extends Activity {
             addDockTile(dock, pkg, label, banner != null ? banner : icon,
                     () -> { intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); startActivity(intent); });
         }
-        addDockTile(dock, "inputs", "Inputs", null,
-                () -> startActivity(new Intent(Settings.ACTION_SETTINGS)));
+        addDockTile(dock, "inputs", "Inputs", null, this::openFirstTvInput);
         addDockTile(dock, "settings", "Settings", null,
                 () -> startActivity(new Intent(Settings.ACTION_SETTINGS)));
     }
@@ -229,7 +231,13 @@ public final class HybridActivity extends Activity {
         ImageView graphic = new ImageView(this);
         graphic.setScaleType(ImageView.ScaleType.FIT_CENTER);
         if (icon != null) graphic.setImageDrawable(icon);
-        else graphic.setImageDrawable(new WeatherGlyph(-1, true)); // temporary neutral icon
+        else {
+            // Simple neutral native drawable for system utility tiles.
+            GradientDrawable symbol = new GradientDrawable();
+            symbol.setColor(0xFF6686A6);
+            symbol.setCornerRadius(px(11));
+            graphic.setImageDrawable(symbol);
+        }
         if (icon != null) tile.addView(graphic, new LinearLayout.LayoutParams(-1, px(80)));
         else tile.addView(graphic, new LinearLayout.LayoutParams(px(46), px(46)));
         TextView labelView = text(label, 24, Color.WHITE, true);
@@ -258,6 +266,25 @@ public final class HybridActivity extends Activity {
         tp.leftMargin = px(8);
         tp.rightMargin = px(8);
         dock.addView(tile, tp);
+    }
+
+    private void openFirstTvInput() {
+        try {
+            TvInputManager manager = (TvInputManager) getSystemService(TV_INPUT_SERVICE);
+            if (manager != null) {
+                for (TvInputInfo input : manager.getTvInputList()) {
+                    if (input.isPassthroughInput()) {
+                        Intent view = new Intent(Intent.ACTION_VIEW,
+                                TvContract.buildChannelUriForPassthroughInput(input.getId()));
+                        view.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        startActivity(view);
+                        return;
+                    }
+                }
+            }
+        } catch (Exception ignored) { }
+        // Some TCL firmware restricts TV input intents to its own system UI.
+        startActivity(new Intent(Settings.ACTION_SETTINGS));
     }
 
     private void showSelection(String pkg, String label) {
