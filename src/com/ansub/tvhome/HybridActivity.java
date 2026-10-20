@@ -30,6 +30,7 @@ import android.provider.Settings;
 import android.text.TextUtils;
 import android.util.TypedValue;
 import android.view.Gravity;
+import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
@@ -64,6 +65,7 @@ public final class HybridActivity extends Activity {
     private ImageView photo, cinematic, cardArtwork;
     private TextView heading, details, footnote;
     private LinearLayout hero;
+    private FrameLayout stageView;
     private WeatherWidget weather;
     private boolean active;
     private int generation;
@@ -74,6 +76,7 @@ public final class HybridActivity extends Activity {
         super.onCreate(state);
         scale = getResources().getDisplayMetrics().widthPixels / 1920f;
         FrameLayout stage = new FrameLayout(this);
+        stageView = stage;
         stage.setBackgroundColor(0xFF0A1222);
 
         photo = new ImageView(this);
@@ -177,8 +180,70 @@ public final class HybridActivity extends Activity {
         buildDock(dock);
 
         setContentView(stage);
+        // Preserve the photo-only landing screen until the first remote arrow.
+        // Some Android TV remotes cannot move focus out of this root FrameLayout
+        // automatically, so dispatchKeyEvent below manages dock focus explicitly.
+        stage.setFocusable(true);
         stage.setFocusableInTouchMode(true);
-        stage.requestFocus(); // Family slideshow is the uncluttered default state.
+        stage.requestFocus();
+        showIdle();
+    }
+
+    /**
+     * TCL / Android TV D-pad navigation:
+     * DOWN or RIGHT from idle enters the dock; LEFT/RIGHT moves between tiles;
+     * UP returns to the unobstructed family-photo view; OK launches focused item.
+     * Never consume BACK, HOME, volume, or other system keys.
+     */
+    @Override public boolean dispatchKeyEvent(KeyEvent event) {
+        if (dockTiles.isEmpty()) return super.dispatchKeyEvent(event);
+        final int code = event.getKeyCode();
+        final boolean direction = code == KeyEvent.KEYCODE_DPAD_LEFT
+                || code == KeyEvent.KEYCODE_DPAD_RIGHT
+                || code == KeyEvent.KEYCODE_DPAD_UP
+                || code == KeyEvent.KEYCODE_DPAD_DOWN;
+        final boolean select = code == KeyEvent.KEYCODE_DPAD_CENTER
+                || code == KeyEvent.KEYCODE_ENTER
+                || code == KeyEvent.KEYCODE_NUMPAD_ENTER;
+        if (!direction && !select) return super.dispatchKeyEvent(event);
+
+        if (event.getAction() == KeyEvent.ACTION_DOWN) {
+            int at = focusedDockIndex();
+            if (code == KeyEvent.KEYCODE_DPAD_UP) {
+                if (stageView != null) stageView.requestFocus();
+                showIdle();
+            } else if (code == KeyEvent.KEYCODE_DPAD_DOWN) {
+                if (at < 0) dockTiles.get(0).requestFocus();
+            } else if (code == KeyEvent.KEYCODE_DPAD_LEFT) {
+                dockTiles.get(at < 0 ? 0 : Math.max(0, at - 1)).requestFocus();
+            } else if (code == KeyEvent.KEYCODE_DPAD_RIGHT) {
+                dockTiles.get(at < 0 ? 0 : Math.min(dockTiles.size() - 1, at + 1)).requestFocus();
+            } else if (select && event.getRepeatCount() == 0) {
+                if (at >= 0) dockTiles.get(at).performClick();
+                else dockTiles.get(0).requestFocus();
+            }
+        }
+        return true; // Also consume key-UP so OK cannot trigger twice.
+    }
+
+    private int focusedDockIndex() {
+        View selected = getCurrentFocus();
+        for (int i = 0; i < dockTiles.size(); i++) {
+            if (dockTiles.get(i) == selected || dockTiles.get(i).hasFocus()) return i;
+        }
+        return -1;
+    }
+
+    private void showIdle() {
+        if (hero != null) hero.setVisibility(View.GONE);
+        if (cinematic != null) {
+            cinematic.setVisibility(View.GONE);
+            cinematic.setImageDrawable(null);
+        }
+        if (cardArtwork != null) {
+            cardArtwork.setVisibility(View.GONE);
+            cardArtwork.setImageDrawable(null);
+        }
     }
 
     private void buildDock(LinearLayout dock) {
@@ -224,7 +289,10 @@ public final class HybridActivity extends Activity {
         tile.setOrientation(LinearLayout.VERTICAL);
         tile.setGravity(Gravity.CENTER);
         tile.setFocusable(true);
+        tile.setFocusableInTouchMode(true);
         tile.setClickable(true);
+        // Accessible focus target; also allows a deterministic emulator TV test.
+        tile.setContentDescription("Hybrid dock: " + label);
         tile.setPadding(px(12), px(9), px(12), px(8));
         tile.setBackground(round(0xCC1F2F48, 21, 0x10FFFFFF));
         tile.setTag(pkg);
