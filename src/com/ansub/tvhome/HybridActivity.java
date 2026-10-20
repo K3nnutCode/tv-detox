@@ -156,21 +156,34 @@ public final class HybridActivity extends Activity {
 
         // FEATURED HERO: reference layout at 1920x1080.
         // Approx. x=68..1378, y=275..810, leaving 30px before the dock.
-        // The series artwork fills the entire big feature panel, not a thumbnail.
+        // Preserve the v0.3.1 hero frame at 1310x536 (1920x1080 layout).
+        // Stremio's thumbnail is typically 16:9 (455x256 in our TCL test).
+        // Cropping that image across the 2.44:1 whole hero discarded its top
+        // and bottom. Instead, position a near-16:9 viewport on the RIGHT:
+        // it keeps the character and most of the composition visible.
         hero = new FrameLayout(this);
         hero.setBackground(round(0xD1141C2B, 30, 0x62FFFFFF));
         hero.setClipToOutline(true);
         heroArtwork = new ImageView(this);
         heroArtwork.setScaleType(ImageView.ScaleType.CENTER_CROP);
         heroArtwork.setVisibility(View.GONE);
-        hero.addView(heroArtwork, new FrameLayout.LayoutParams(-1, -1));
+        FrameLayout.LayoutParams artParams = new FrameLayout.LayoutParams(
+                px(850), -1, Gravity.RIGHT | Gravity.TOP);
+        hero.addView(heroArtwork, artParams);
 
-        // Preserve high contrast over bright family photos / Stremio key art.
-        // The right side shows the artwork, and the left carries the text.
+        // Heavy contrast strictly behind left-side metadata; gentle fade into
+        // the actual episode artwork at the right. Never add a flat dark tint
+        // directly to the image itself or use an enlarged thumbnail square.
         View heroShade = new View(this);
         heroShade.setBackground(new GradientDrawable(
                 GradientDrawable.Orientation.LEFT_RIGHT,
-                new int[] {0xF3141A2A, 0xE91A2130, 0x95141A2A, 0x24141A2A}));
+                new int[] {
+                    0xFA121A2A,  // opaque behind title / progress
+                    0xEF141B2A,
+                    0xC5161D2A,
+                    0x69151B26,
+                    0x07151B26   // almost transparent over the art at right
+                }));
         hero.addView(heroShade, new FrameLayout.LayoutParams(-1, -1));
 
         LinearLayout writing = new LinearLayout(this);
