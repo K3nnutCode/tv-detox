@@ -112,6 +112,12 @@ jobs:
             if adb shell cat /sdcard/v1-focus.xml | grep -qE 'content-desc="Hybrid dock: [^"]*"[^>]*focused="true"'; then exit 1; fi
             adb shell input keyevent KEYCODE_DPAD_DOWN
             adb exec-out screencap -p > hybrid-tv-v1-emulator.png
+            # Emulator-only rehearsal of becoming default Home — NEVER on user TV.
+            adb shell cmd package set-home-activity com.ansub.tvhome.hybrid.stable/com.ansub.tvhome.HybridActivity > set-home.txt
+            ! grep -qi 'error\|failed' set-home.txt
+            adb shell input keyevent KEYCODE_HOME
+            sleep 2
+            adb shell dumpsys window | grep mCurrentFocus | grep -q com.ansub.tvhome.hybrid.stable
       - uses: actions/upload-artifact@v4
         if: always()
         with:
