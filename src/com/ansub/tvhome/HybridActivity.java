@@ -92,7 +92,7 @@ public final class HybridActivity extends Activity {
         }
     };
     private FrameLayout stageView;
-    private WeatherWidget weather;
+    private HybridWeatherWidget weather;
     private boolean active;
     private int generation;
     private int index = -1;
@@ -206,7 +206,7 @@ public final class HybridActivity extends Activity {
         stage.addView(prayers, pos(px(465), px(44), px(890), -2));
         updatePrayerPanel();
 
-        weather = new WeatherWidget(this, scale);
+        weather = new HybridWeatherWidget(this, scale);
         weather.setBackground(round(0x8F162739, 24, 0x30FFFFFF));
         FrameLayout.LayoutParams wp = new FrameLayout.LayoutParams(px(455), -2, Gravity.TOP | Gravity.RIGHT);
         wp.topMargin = px(44);
