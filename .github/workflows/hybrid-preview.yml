@@ -1,0 +1,87 @@
+name: Hybrid TV Preview (safe side-by-side APK)
+
+on:
+  pull_request:
+    paths:
+      - 'src/com/ansub/tvhome/HybridActivity.java'
+      - 'src/com/ansub/tvhome/HybridSessionListener.java'
+      - 'AndroidManifest-hybrid-preview.xml'
+      - 'build-hybrid-preview.sh'
+      - '.github/workflows/hybrid-preview.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-hybrid:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Android SDK 34
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-34" "build-tools;34.0.0" >/dev/null
+      - name: Build independent hybrid APK
+        run: sh build-hybrid-preview.sh
+      - name: Verify safe manifest and signature
+        shell: bash
+        run: |
+          set -eu
+          APK=out-hybrid/hybrid-tv-preview.apk
+          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify "$APK"
+          "$ANDROID_HOME/build-tools/34.0.0/aapt" dump badging "$APK" | grep -F "package: name='com.ansub.tvhome.hybrid.preview'"
+          "$ANDROID_HOME/build-tools/34.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml > /tmp/hybrid.xml.txt
+          grep -q 'android.intent.category.LEANBACK_LAUNCHER' /tmp/hybrid.xml.txt
+          if grep -q 'android.intent.category.HOME' /tmp/hybrid.xml.txt; then
+            echo 'ERROR: Preview must NEVER become a HOME app' >&2
+            exit 1
+          fi
+          if grep -q 'android.permission.WRITE_EXTERNAL_STORAGE' /tmp/hybrid.xml.txt; then
+            echo 'ERROR: Preview must not write shared photos' >&2
+            exit 1
+          fi
+          echo 'PASS: separate hybrid package, no HOME intent, signed debug-only APK'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hybrid-tv-preview-apk
+          path: out-hybrid/hybrid-tv-preview.apk
+          retention-days: 14
+
+  android-tv-11-smoke-test:
+    needs: build-hybrid
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: hybrid-tv-preview-apk
+          path: out-hybrid
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+      - name: Install and launch in Android TV 11 emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: android-tv
+          arch: x86
+          profile: tv_1080p
+          disable-animations: true
+          script: |
+            adb install out-hybrid/hybrid-tv-preview.apk
+            adb shell am start -W -n com.ansub.tvhome.hybrid.preview/com.ansub.tvhome.HybridActivity
+            adb shell pm path com.ansub.tvhome.hybrid.preview | grep -q base.apk
+            adb shell dumpsys window | grep mCurrentFocus | grep -q com.ansub.tvhome.hybrid.preview
+            adb shell input keyevent KEYCODE_DPAD_DOWN
+            adb shell input keyevent KEYCODE_DPAD_RIGHT
+            adb exec-out screencap -p > hybrid-tv-screenshot.png
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: hybrid-tv-emulator-screenshot
+          path: hybrid-tv-screenshot.png
