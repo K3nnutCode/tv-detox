@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'src/com/ansub/tvhome/HybridActivity.java'
+      - 'src/com/ansub/tvhome/TvDockArt.java'
       - 'src/com/ansub/tvhome/HybridSessionListener.java'
       - 'AndroidManifest-hybrid-preview.xml'
       - 'build-hybrid-preview.sh'
