@@ -77,3 +77,13 @@ jobs:
             adb shell am start -W -n com.ansub.stremioprobe/.MainActivity
             adb shell pm path com.ansub.stremioprobe | grep -q base.apk
             adb shell dumpsys window | grep mCurrentFocus | grep -q com.ansub.stremioprobe
+            # D-pad should move focus between two large TV-remote buttons.
+            adb shell input keyevent KEYCODE_DPAD_RIGHT
+            adb shell uiautomator dump /sdcard/stremio-tv-focus.xml >/dev/null
+            adb shell cat /sdcard/stremio-tv-focus.xml |
+              grep -E 'text="Notification access settings"[^>]*focused="true"'
+            adb shell input keyevent KEYCODE_DPAD_LEFT
+            adb shell uiautomator dump /sdcard/stremio-tv-focus.xml >/dev/null
+            adb shell cat /sdcard/stremio-tv-focus.xml |
+              grep -E 'text="Refresh Stremio status"[^>]*focused="true"'
+            adb shell input keyevent KEYCODE_DPAD_CENTER
