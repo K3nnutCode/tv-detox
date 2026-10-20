@@ -1,4 +1,17 @@
-# Hybrid TV Preview v0.1 (isolated test app)
+# Hybrid TV Preview v0.3 (isolated test app)
+
+## v0.3 — visual refinements for the TCL TV
+- Clock/date and greeting now use Brunei local time (`Asia/Brunei`). Greeting switches automatically: **Good Night** (22:00–04:59), **Good Morning** (05:00–11:59), **Good Afternoon** (12:00–17:59), **Good Evening** (18:00–21:59).
+- Stremio Continue Watching now uses a **compact glass panel** instead of a huge black box; episode artwork and cinematic background continue to be shown when the owner opts into media-session access.
+- Playback has a real horizontal progress indicator, precise watched percentage (e.g., 0.8%), elapsed and time remaining **when duration is supplied by Stremio**.
+- The selected app stays dark, with a thin blue glow/focus border instead of a bright white tile.
+- Inputs and Settings have native HDMI/controls glyphs rather than blank squares.
+- Existing shared photo slideshow and Open-Meteo weather stay unchanged.
+- **No new prayer times yet**: the Brunei-Muara prayer panel still explicitly reads "awaiting verification" until official source rows have been validated.
+
+Download the latest `hybrid-tv-preview-apk` from the successful GitHub Actions run associated with this branch. The APK is signed using an ephemeral key on each build. Before installing this new build, **revoke notification-listener access and uninstall only `com.ansub.tvhome.hybrid.preview`** (the old preview app). This does not remove the permanent Home Photos launcher, your photos, Stremio, or any viewing history.
+
+## Earlier v0.2 remote fix
 
 This is **stage 1** of the combined CleanYourTV-inspired TV home and Home Photos. It is a separate application, **not** a Home launcher.
 
