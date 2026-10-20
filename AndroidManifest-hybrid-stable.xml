@@ -17,7 +17,7 @@
     <application android:label="Hybrid TV" android:allowBackup="false"
         android:usesCleartextTraffic="false" android:theme="@android:style/Theme.Material.NoActionBar.Fullscreen">
         <activity android:name="com.ansub.tvhome.HybridActivity"
-            android:exported="true" android:screenOrientation="landscape"
+            android:exported="true" android:launchMode="singleTask" android:screenOrientation="landscape"
             android:configChanges="orientation|screenSize|uiMode">
             <!-- Real Android HOME candidate. User must explicitly choose it.
                  Do NOT disable, uninstall or hide any other home app. -->
