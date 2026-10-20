@@ -614,37 +614,42 @@ public final class HybridActivity extends Activity {
         NotificationManager notifications = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         ComponentName listener = new ComponentName(this, HybridSessionListener.class);
         if (notifications == null || !notifications.isNotificationListenerAccessGranted(listener)) {
+            // No access means no session collection and no retained media
+            // snapshot. This is deliberately different from ordinary app data.
+            StremioSnapshotStore.clear(this);
             details.setText("Continue Watching");
             footnote.setText("Opt-in media session access required · No data collected");
             return;
         }
         try {
             MediaSessionManager manager = (MediaSessionManager) getSystemService(MEDIA_SESSION_SERVICE);
-            if (manager == null) return;
-            for (MediaController controller : manager.getActiveSessions(listener)) {
+            if (manager != null) for (MediaController controller : manager.getActiveSessions(listener)) {
                 if (!STREMIO.equals(controller.getPackageName())) continue;
                 MediaMetadata metadata = controller.getMetadata();
                 PlaybackState state = controller.getPlaybackState();
-                if (metadata == null) break;
+                if (metadata == null || state == null) continue;
                 String title = value(metadata, MediaMetadata.METADATA_KEY_TITLE);
-                String episode = value(metadata, MediaMetadata.METADATA_KEY_ARTIST);
-                if (title != null) heading.setText(title);
-                details.setText(episode == null ? "Stremio · Continue Watching" : episode);
                 long total = metadata.getLong(MediaMetadata.METADATA_KEY_DURATION);
-                long position = state == null ? -1 : state.getPosition();
-                if (total > 0 && position >= 0) {
-                    long watched = Math.min(position, total);
-                    int progress = (int) Math.max(0L, Math.min(1000L, watched * 1000L / total));
-                    playbackProgress.setProgress(progress);
-                    playbackProgress.setVisibility(View.VISIBLE);
-                    float percentage = 100f * watched / total;
-                    footnote.setText(fmt(watched) + " watched  ·  " +
-                            fmt(total - watched) + " left  ·  " +
-                            String.format(Locale.US, "%.1f%%", percentage));
-                } else {
-                    playbackProgress.setVisibility(View.GONE);
-                    footnote.setText("Playback duration unavailable");
-                }
+                long position = state.getPosition();
+                int kind = state.getState();
+                // A menu/stopped session is NOT currently playing media. Use
+                // the most recent valid snapshot instead if one exists.
+                boolean validKind = kind == PlaybackState.STATE_PLAYING
+                        || kind == PlaybackState.STATE_PAUSED
+                        || kind == PlaybackState.STATE_BUFFERING;
+                if (title == null || total <= 0 || position < 0 || !validKind) continue;
+
+                String episode = value(metadata, MediaMetadata.METADATA_KEY_ARTIST);
+                heading.setText(title);
+                details.setText(episode == null ? "Stremio · Continue Watching" : episode);
+                long watched = Math.min(position, total);
+                int progress = (int) Math.max(0L, Math.min(1000L, watched * 1000L / total));
+                playbackProgress.setProgress(progress);
+                playbackProgress.setVisibility(View.VISIBLE);
+                heroEyebrow.setText("CONTINUE WATCHING  ·  STREMIO");
+                footnote.setText(fmt(watched) + " watched  ·  " +
+                        fmt(total - watched) + " left  ·  " +
+                        String.format(Locale.US, "%.1f%%", 100f * watched / total));
                 Bitmap bmp = metadata.getBitmap(MediaMetadata.METADATA_KEY_DISPLAY_ICON);
                 if (bmp == null) bmp = metadata.getBitmap(MediaMetadata.METADATA_KEY_ART);
                 if (bmp == null) bmp = metadata.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART);
@@ -654,16 +659,45 @@ public final class HybridActivity extends Activity {
                     cinematic.setImageBitmap(bmp);
                     cinematic.setVisibility(View.VISIBLE);
                 }
+                // Also snapshot from foreground view (background service is
+                // best-effort on vendor TV firmware).
+                StremioSnapshotStore.capture(this, metadata, state);
                 return;
             }
+        } catch (SecurityException ignored) {
+            // Service may have lost access between checking and reading.
+        } catch (RuntimeException ignored) {
+            // An inaccessible session must not bring down the TV launcher.
+        }
+
+        // Stremio often closes its media session when BACK returns to its
+        // menu. The opt-in listener can retain the last VALID playing title.
+        StremioSnapshotStore.Snapshot saved = StremioSnapshotStore.read(this);
+        if (saved == null) {
+            heading.setText("Stremio");
             details.setText("Continue Watching unavailable");
-            footnote.setText("Play and pause a title in Stremio, then return here");
-        } catch (SecurityException e) {
-            details.setText("Access not granted");
-            footnote.setText("Notification listener access requires explicit permission");
-        } catch (RuntimeException e) {
-            details.setText("Media session unavailable");
-            footnote.setText("Press OK to open Stremio");
+            footnote.setText("Play a title in Stremio, then return here");
+            return;
+        }
+        heroEyebrow.setText("LAST SEEN  ·  STREMIO  ·  SAVED");
+        heading.setText(saved.title);
+        details.setText(saved.artist.isEmpty() ? "Previously watched on this TV"
+                : saved.artist + " · previously watched");
+        long watched = Math.min(saved.position, saved.duration);
+        playbackProgress.setProgress((int) Math.max(0L,
+                Math.min(1000L, watched * 1000L / saved.duration)));
+        playbackProgress.setVisibility(View.VISIBLE);
+        java.text.SimpleDateFormat timestamp =
+                new java.text.SimpleDateFormat("d MMM, HH:mm", Locale.US);
+        timestamp.setTimeZone(BRUNEI_ZONE);
+        footnote.setText(fmt(watched) + " saved  ·  " +
+                fmt(saved.duration - watched) + " left  ·  " +
+                timestamp.format(new java.util.Date(saved.savedAt)));
+        if (saved.artwork != null) {
+            heroArtwork.setImageBitmap(saved.artwork);
+            heroArtwork.setVisibility(View.VISIBLE);
+            cinematic.setImageBitmap(saved.artwork);
+            cinematic.setVisibility(View.VISIBLE);
         }
     }
 
