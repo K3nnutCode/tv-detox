@@ -2,6 +2,7 @@ package com.ansub.tvhome;
 
 import android.app.Activity;
 import android.app.Dialog;
+import android.Manifest;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -34,6 +35,7 @@ import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
+import android.util.Log;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.KeyEvent;
@@ -98,9 +100,12 @@ public class MainActivity extends Activity {
     // ---- Photo slideshow behind the home screen ----
     // Put photos (jpg, png, webp) in this folder on the TV (adb push can write there):
     //   /sdcard/Pictures/TVWallpapers/
-    // The app needs one read-only permission, granted once from your PC:
-    //   adb shell pm grant com.ansub.tvhome android.permission.READ_EXTERNAL_STORAGE
+    // Android 6-12 needs read-only photo permission. If the folder exists, the TV asks once.
+    // To grant it from a PC instead: adb shell pm grant com.ansub.tvhome android.permission.READ_EXTERNAL_STORAGE
     // With no photos in that folder, or no permission, the home screen looks exactly as it did before.
+    private static final int PHOTO_PERMISSION_REQUEST = 27;
+    private static final String PHOTO_PERMISSION_ASKED = "photoPermissionAsked";
+    private static final String PHOTO_TAG = "TVHomePhotos";
     private static final long SLIDE_MS = 60000;      // how long each photo stays up
     private static final int FADE_MS = 1000;         // fade between photos
     private static final int PHOTO_DIM = 0x26000000; // 15% black over every photo
@@ -247,7 +252,7 @@ public class MainActivity extends Activity {
         }
         View f = getCurrentFocus();
         if (f == null && !tiles.isEmpty()) tiles.get(0).requestFocus();
-        startSlideshow();
+        startSlideshowWithPermission();
     }
 
     @Override
@@ -262,6 +267,17 @@ public class MainActivity extends Activity {
         photoView.setImageDrawable(null);
         showPhotoStyle(false);
         super.onStop();
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode != PHOTO_PERMISSION_REQUEST) return;
+        if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            startSlideshow();
+        } else {
+            Log.w(PHOTO_TAG, "Photo permission denied; slideshow will use the original background.");
+        }
     }
 
     @Override
@@ -804,6 +820,27 @@ public class MainActivity extends Activity {
         return new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), "TVWallpapers");
     }
 
+    private void startSlideshowWithPermission() {
+        // On Android 6-12, the app must be granted READ_EXTERNAL_STORAGE before scanning
+        // the shared Pictures folder. Avoid prompting users who haven't set up photos.
+        if (android.os.Build.VERSION.SDK_INT >= 23 && android.os.Build.VERSION.SDK_INT <= 32
+                && checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE)
+                        != PackageManager.PERMISSION_GRANTED) {
+            if (photoDir().isDirectory()) {
+                SharedPreferences prefs = getSharedPreferences(PREFS, 0);
+                if (!prefs.getBoolean(PHOTO_PERMISSION_ASKED, false)) {
+                    prefs.edit().putBoolean(PHOTO_PERMISSION_ASKED, true).apply();
+                    requestPermissions(new String[] {Manifest.permission.READ_EXTERNAL_STORAGE},
+                            PHOTO_PERMISSION_REQUEST);
+                } else {
+                    Log.w(PHOTO_TAG, "Photo permission missing. Grant READ_EXTERNAL_STORAGE to show photos.");
+                }
+            }
+            return;
+        }
+        startSlideshow();
+    }
+
     private void scanPhotos() {
         List<File> found = new ArrayList<>();
         try {
@@ -816,7 +853,9 @@ public class MainActivity extends Activity {
                             || n.endsWith(".png") || n.endsWith(".webp"))) found.add(f);
                 }
             }
-        } catch (Throwable t) { /* no photos: keep the normal look */ }
+        } catch (Throwable t) {
+            Log.w(PHOTO_TAG, "Unable to list " + photoDir(), t);
+        }
         Collections.sort(found);
         photos = found;
     }
@@ -825,7 +864,11 @@ public class MainActivity extends Activity {
         if (slideshowOn) return;
         slideshowOn = true;
         scanPhotos(); // picks up photos you added since last time
-        if (photos.isEmpty()) { showPhotoStyle(false); return; }
+        if (photos.isEmpty()) {
+            Log.i(PHOTO_TAG, "No photos found in " + photoDir());
+            showPhotoStyle(false);
+            return;
+        }
         loadNext();
     }
 
@@ -918,6 +961,7 @@ public class MainActivity extends Activity {
             }
             return out;
         } catch (Throwable t) { // a bad file or too little memory: skip this photo
+            Log.w(PHOTO_TAG, "Unable to decode photo " + f.getName(), t);
             return null;
         }
     }
