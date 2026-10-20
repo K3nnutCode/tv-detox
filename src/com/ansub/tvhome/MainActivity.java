@@ -402,6 +402,7 @@ public class MainActivity extends Activity {
         // Smart TV app banners are widescreen, unlike phone/tablet app icons.
         // Keep them for Home Photos, with no white tile outlines or app-icon grid look.
         final boolean photosEdition = getPackageName().startsWith("com.ansub.tvhome.photos");
+        final boolean utilityTile = !rowApps.contains(key);
         final boolean showBanner = banner != null;
         final GradientDrawable bg = new GradientDrawable();
         bg.setCornerRadius(px(RADIUS));
@@ -415,7 +416,7 @@ public class MainActivity extends Activity {
         } else {
             bannerView = null;
             // Quiet dark media tile for utility shortcuts and apps without TV banners.
-            bg.setColor(photosEdition ? 0xA8192433 : 0x13FFFFFF);
+            bg.setColor(photosEdition ? (utilityTile ? 0xD11C2737 : 0xA8192433) : 0x13FFFFFF);
             if (!photosEdition) bg.setStroke(Math.max(1, px(2)), 0x17FFFFFF);
             LinearLayout inner = new LinearLayout(this);
             inner.setOrientation(LinearLayout.VERTICAL);
@@ -453,7 +454,8 @@ public class MainActivity extends Activity {
         card.setOnFocusChangeListener((v, has) -> {
             if (has) focusedKey = key;
             if (photosEdition) {
-                if (!showBanner) bg.setColor(has ? 0xE0364556 : 0xA8192433);
+                if (!showBanner) bg.setColor(has ? (utilityTile ? 0xEF364455 : 0xE0364556)
+                        : (utilityTile ? 0xD11C2737 : 0xA8192433));
                 if (bannerView != null) bannerView.animate().alpha(has ? 1f : 0.92f)
                         .setDuration(140).start();
             } else if (glass) bg.setColor(has ? 0x38FFFFFF : 0x13FFFFFF);
