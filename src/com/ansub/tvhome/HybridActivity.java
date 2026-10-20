@@ -12,11 +12,9 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.PorterDuff;
-import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.InsetDrawable;
-import android.graphics.drawable.TransitionDrawable;
 import android.media.MediaMetadata;
 import android.media.session.MediaController;
 import android.media.session.MediaSessionManager;
@@ -70,7 +68,8 @@ public final class HybridActivity extends Activity {
     private final Handler ui = new Handler(Looper.getMainLooper());
     private final ArrayList<View> dockTiles = new ArrayList<>();
     private final ArrayList<File> photos = new ArrayList<>();
-    private ImageView photo, cinematic, heroArtwork;
+    private TvWallpaperView photo;
+    private ImageView cinematic, heroArtwork;
     private TextView heading, details, footnote, greetingView, heroEyebrow, heroAction;
     private TextView prayerNextView, prayerPeriodView, prayerSourceView;
     private final TextView[] prayerTimeViews = new TextView[5];
@@ -105,9 +104,10 @@ public final class HybridActivity extends Activity {
         stageView = stage;
         stage.setBackgroundColor(0xFF0A1222);
 
-        photo = new ImageView(this);
-        photo.setScaleType(ImageView.ScaleType.CENTER_CROP);
-        photo.setColorFilter(0x2F000000, PorterDuff.Mode.SRC_ATOP);
+        // Two crossfading frames preserve EACH photo's original aspect ratio.
+        // Landscape uses center-crop, portrait/4:3 gets a blurred fill behind
+        // its fully visible fit-centered image. Never stretch a family photo.
+        photo = new TvWallpaperView(this);
         stage.addView(photo, new FrameLayout.LayoutParams(-1,-1));
 
         cinematic = new ImageView(this);
@@ -831,28 +831,36 @@ public final class HybridActivity extends Activity {
                 options.inJustDecodeBounds = true;
                 BitmapFactory.decodeFile(f.getAbsolutePath(), options);
                 int sample = 1;
-                int w = getResources().getDisplayMetrics().widthPixels;
-                while (options.outWidth / sample > w * 1.5 && sample < 32) sample *= 2;
+                int screenW = getResources().getDisplayMetrics().widthPixels;
+                int screenH = getResources().getDisplayMetrics().heightPixels;
+                // Cap both dimensions so tall portrait photographs do not
+                // decode at huge resolutions on a low-memory Android TV.
+                while (sample < 32 && (options.outWidth / sample > screenW * 1.5f
+                        || options.outHeight / sample > screenH * 1.5f)) sample *= 2;
                 options.inJustDecodeBounds = false;
                 options.inSampleSize = sample;
                 bitmap = BitmapFactory.decodeFile(f.getAbsolutePath(), options);
             } catch (Exception ignored) { }
             Bitmap result = bitmap;
+            Bitmap blurred = null;
+            if (result != null) {
+                try {
+                    float screenRatio = (float) getResources().getDisplayMetrics().widthPixels
+                            / Math.max(1, getResources().getDisplayMetrics().heightPixels);
+                    blurred = TvWallpaperView.makeBlurredFill(result, screenRatio);
+                } catch (OutOfMemoryError oom) {
+                    // The original photo can still be shown undistorted.
+                    android.util.Log.w("HybridWallpaper", "Backdrop memory limit", oom);
+                }
+            }
+            final Bitmap background = blurred;
             ui.post(() -> {
                 if (!active || token != generation) {
                     if (result != null && !result.isRecycled()) result.recycle();
+                    if (background != null && !background.isRecycled()) background.recycle();
                     return;
                 }
-                if (result != null) {
-                    Drawable old = photo.getDrawable();
-                    if (old instanceof TransitionDrawable) old = ((TransitionDrawable) old).getDrawable(1);
-                    if (old == null) old = new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT);
-                    TransitionDrawable fade = new TransitionDrawable(new Drawable[]{
-                            old, new BitmapDrawable(getResources(), result)});
-                    fade.setCrossFadeEnabled(true);
-                    photo.setImageDrawable(fade);
-                    fade.startTransition(850);
-                }
+                if (result != null) photo.show(result, background);
                 if (photos.size() > 1) ui.postDelayed(this::nextPhoto, SLIDE_MS);
             });
         }).start();
