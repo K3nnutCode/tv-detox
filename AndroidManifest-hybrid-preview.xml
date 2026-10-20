@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.ansub.tvhome.hybrid.preview" android:versionCode="15" android:versionName="0.4.3">
+    <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="30" />
+    <queries>
+        <intent><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LEANBACK_LAUNCHER"/></intent>
+        <intent><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent>
+        <package android:name="com.stremio.one"/>
+        <package android:name="com.google.android.youtube.tv"/>
+    </queries>
+    <!-- HTTPS weather only. Personal photos are read, never modified. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
+    <uses-feature android:name="android.software.leanback" android:required="false"/>
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false"/>
+    <application android:label="Hybrid TV Preview" android:allowBackup="false"
+        android:usesCleartextTraffic="false" android:theme="@android:style/Theme.Material.NoActionBar.Fullscreen">
+        <activity android:name="com.ansub.tvhome.HybridActivity"
+            android:exported="true" android:screenOrientation="landscape"
+            android:configChanges="orientation|screenSize|uiMode">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER"/>
+            </intent-filter>
+        </activity>
+        <!-- Notification access requires explicit owner approval; cannot be granted by installer. -->
+        <service android:name="com.ansub.tvhome.HybridSessionListener"
+            android:exported="true" android:label="Hybrid TV Stremio preview access"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter><action android:name="android.service.notification.NotificationListenerService"/></intent-filter>
+        </service>
+    </application>
+</manifest>

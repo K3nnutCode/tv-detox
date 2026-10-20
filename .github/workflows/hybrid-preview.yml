@@ -1,0 +1,124 @@
+name: Hybrid TV Preview (safe side-by-side APK)
+
+on:
+  pull_request:
+    paths:
+      - 'src/com/ansub/tvhome/HybridActivity.java'
+      - 'src/com/ansub/tvhome/TvWallpaperView.java'
+      - 'src/com/ansub/tvhome/HybridWeatherWidget.java'
+      - 'src/com/ansub/tvhome/PrayerSchedule2026.java'
+      - 'tests/com/ansub/tvhome/PrayerSchedule2026Test.java'
+      - 'src/com/ansub/tvhome/TvDockArt.java'
+      - 'src/com/ansub/tvhome/HybridSessionListener.java'
+      - 'src/com/ansub/tvhome/StremioSnapshotStore.java'
+      - 'AndroidManifest-hybrid-preview.xml'
+      - 'build-hybrid-preview.sh'
+      - '.github/workflows/hybrid-preview.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-hybrid:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Android SDK 34
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-34" "build-tools;34.0.0" >/dev/null
+      - name: Validate official 2026 Brunei prayer timetable (offline)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/hybrid-prayer-test
+          javac -d /tmp/hybrid-prayer-test \
+            src/com/ansub/tvhome/PrayerSchedule2026.java \
+            tests/com/ansub/tvhome/PrayerSchedule2026Test.java
+          java -cp /tmp/hybrid-prayer-test com.ansub.tvhome.PrayerSchedule2026Test
+      - name: Build independent hybrid APK
+        run: sh build-hybrid-preview.sh
+      - name: Verify safe manifest and signature
+        shell: bash
+        run: |
+          set -eu
+          APK=out-hybrid/hybrid-tv-preview.apk
+          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify "$APK"
+          "$ANDROID_HOME/build-tools/34.0.0/aapt" dump badging "$APK" | grep -F "package: name='com.ansub.tvhome.hybrid.preview'"
+          "$ANDROID_HOME/build-tools/34.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml > /tmp/hybrid.xml.txt
+          grep -q 'android.intent.category.LEANBACK_LAUNCHER' /tmp/hybrid.xml.txt
+          if grep -q 'android.intent.category.HOME' /tmp/hybrid.xml.txt; then
+            echo 'ERROR: Preview must NEVER become a HOME app' >&2
+            exit 1
+          fi
+          if grep -q 'android.permission.WRITE_EXTERNAL_STORAGE' /tmp/hybrid.xml.txt; then
+            echo 'ERROR: Preview must not write shared photos' >&2
+            exit 1
+          fi
+          echo 'PASS: separate hybrid package, no HOME intent, signed debug-only APK'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hybrid-tv-preview-apk
+          path: out-hybrid/hybrid-tv-preview.apk
+          retention-days: 14
+
+  android-tv-11-smoke-test:
+    needs: build-hybrid
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: hybrid-tv-preview-apk
+          path: out-hybrid
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+      - name: Install and launch in Android TV 11 emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: android-tv
+          arch: x86
+          profile: tv_1080p
+          disable-animations: true
+          script: |
+            adb install out-hybrid/hybrid-tv-preview.apk
+            adb shell am start -W -n com.ansub.tvhome.hybrid.preview/com.ansub.tvhome.HybridActivity
+            adb shell pm path com.ansub.tvhome.hybrid.preview | grep -q base.apk
+            adb shell dumpsys window | grep mCurrentFocus | grep -q com.ansub.tvhome.hybrid.preview
+            # Root landing view starts unfocused on an app; DOWN must enter dock.
+            adb shell input keyevent KEYCODE_DPAD_DOWN
+            adb shell uiautomator dump /sdcard/hybrid-focus.xml >/dev/null
+            # Each line in emulator-runner is its own shell; preserve results in files.
+            adb shell cat /sdcard/hybrid-focus.xml | grep -oE 'content-desc="Hybrid dock: [^"]*"[^>]*focused="true"' > focus-down.txt
+            test -s focus-down.txt
+            # RIGHT must move focus to a different app/utility tile.
+            adb shell input keyevent KEYCODE_DPAD_RIGHT
+            adb shell uiautomator dump /sdcard/hybrid-focus.xml >/dev/null
+            adb shell cat /sdcard/hybrid-focus.xml | grep -oE 'content-desc="Hybrid dock: [^"]*"[^>]*focused="true"' > focus-right.txt
+            test -s focus-right.txt
+            ! cmp -s focus-down.txt focus-right.txt
+            # LEFT must return to the original tile.
+            adb shell input keyevent KEYCODE_DPAD_LEFT
+            adb shell uiautomator dump /sdcard/hybrid-focus.xml >/dev/null
+            adb shell cat /sdcard/hybrid-focus.xml | grep -oE 'content-desc="Hybrid dock: [^"]*"[^>]*focused="true"' > focus-left.txt
+            cmp -s focus-down.txt focus-left.txt
+            # UP returns to the full-screen family-photo view, no dock tile focused.
+            adb shell input keyevent KEYCODE_DPAD_UP
+            adb shell uiautomator dump /sdcard/hybrid-focus.xml >/dev/null
+            if adb shell cat /sdcard/hybrid-focus.xml | grep -qE 'content-desc="Hybrid dock: [^"]*"[^>]*focused="true"'; then exit 1; fi
+            # DOWN + RIGHT leaves the cinematic/focus state ready for screenshot.
+            adb shell input keyevent KEYCODE_DPAD_DOWN
+            adb shell input keyevent KEYCODE_DPAD_RIGHT
+            adb exec-out screencap -p > hybrid-tv-screenshot.png
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: hybrid-tv-emulator-screenshot
+          path: hybrid-tv-screenshot.png
