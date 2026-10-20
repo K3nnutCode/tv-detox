@@ -1,4 +1,33 @@
-# Hybrid TV Preview v0.3.6 (isolated test app)
+# Hybrid TV Preview v0.3.7 (isolated test app)
+
+## v0.3.7 — fix missing left/right focus outline over original TV banners
+
+The marked TCL v0.3.6 screenshot showed Stremio's pale blue focus
+border was visible at its top and bottom but missing/cut off along its
+left/right edges. Root cause: the tile's focus stroke lived in its
+*background*, but the `ImageView` containing the original TV banner
+draws **over** that background stroke.
+
+The focused dock tile now draws a separate, **4px inset rounded foreground
+outline** *after* the banner. The inset keeps the entire border inside the
+tile's rounded clipping region, making all four sides and corners visible.
+No border is added when the tile isn't selected. The underlying blue
+selection emphasis and small focus-scale animation are preserved.
+
+**No other UI changes:** original app banners remain exactly as published by
+their apps; banner crop-to-fill, dock dimensions, icon/text content and layout,
+the large cinematic Stremio panel, existing TV remote navigation, slideshow,
+clock, weather and prayer-verification placeholder are unchanged.
+No new permissions and no changes to permanent Home Photos.
+
+This remains the isolated test package `com.ansub.tvhome.hybrid.preview`.
+To update from v0.3.6, first return to Home Photos, revoke the hybrid
+preview's optional notification-listener access and uninstall **only** the
+hybrid preview (the disposable CI signing certificate changes every build).
+Then install the new v0.3.7 APK, grant existing photo read access and reopen.
+The real TCL screenshot must confirm the complete blue border.
+
+## Earlier v0.3.6 original-banner fit
 
 ## v0.3.6 — restore ORIGINAL Android TV banners fitted to their dock tiles
 
