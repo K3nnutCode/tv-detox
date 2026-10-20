@@ -56,8 +56,8 @@ import java.util.TimeZone;
  * Home Photos preferences, and no writes to the shared photo directory.
  * CleanYourTV-inspired TV dock + the existing Home Photos weather widget.
  *
- * The prayer timetable is intentionally UNAVAILABLE until verified official
- * Brunei times are imported. Never render fabricated prayer timings.
+ * Prayer schedule: OFFLINE Brunei-Muara 2026 verified Oct-Dec rows only.
+ * Out-of-range days NEVER show fabricated or estimated prayer times.
  */
 public final class HybridActivity extends Activity {
     private static final String STREMIO = "com.stremio.one";
@@ -65,12 +65,16 @@ public final class HybridActivity extends Activity {
     private static final int PHOTO_REQUEST = 31;
     private static final long SLIDE_MS = 60000L;
     private static final long GREETING_REFRESH_MS = 60000L;
+    private static final long PRAYER_REFRESH_MS = 30000L;
     private static final TimeZone BRUNEI_ZONE = TimeZone.getTimeZone("Asia/Brunei");
     private final Handler ui = new Handler(Looper.getMainLooper());
     private final ArrayList<View> dockTiles = new ArrayList<>();
     private final ArrayList<File> photos = new ArrayList<>();
     private ImageView photo, cinematic, heroArtwork;
     private TextView heading, details, footnote, greetingView, heroEyebrow, heroAction;
+    private TextView prayerNextView, prayerPeriodView, prayerSourceView;
+    private final TextView[] prayerTimeViews = new TextView[5];
+    private final LinearLayout[] prayerTiles = new LinearLayout[5];
     private ProgressBar playbackProgress;
     private FrameLayout hero;
     private final Runnable greetingTick = new Runnable() {
@@ -78,6 +82,13 @@ public final class HybridActivity extends Activity {
             if (!active) return;
             updateGreeting();
             ui.postDelayed(this, GREETING_REFRESH_MS);
+        }
+    };
+    private final Runnable prayerTick = new Runnable() {
+        @Override public void run() {
+            if (!active) return;
+            updatePrayerPanel();
+            ui.postDelayed(this, PRAYER_REFRESH_MS);
         }
     };
     private FrameLayout stageView;
@@ -136,17 +147,64 @@ public final class HybridActivity extends Activity {
         clock.setBackground(round(0x5224344C, 23, 0x25FFFFFF));
         stage.addView(clock, pos(px(60), px(44), px(380), -2));
 
-        // The times remain intentionally blank until the official Brunei
-        // timetable has been parsed and verified against the original source.
+        // Live current/next prayer panel, with immutable local PDI timetable.
+        // Outside verified 2026-10 .. 2026-12, deliberately show no times.
         LinearLayout prayers = new LinearLayout(this);
         prayers.setOrientation(LinearLayout.VERTICAL);
-        prayers.setGravity(Gravity.CENTER_VERTICAL);
-        prayers.setPadding(px(28), px(23), px(28), px(23));
-        prayers.setBackground(round(0x9E182536, 24, 0x35FFFFFF));
-        prayers.addView(text("☪  WAKTU SOLAT  ·  BRUNEI–MUARA", 26, Color.WHITE, true));
-        prayers.addView(text("Official prayer timetable: awaiting verification", 24, 0xFFE2C795, false));
-        prayers.addView(text("Asia/Brunei  ·  Times deliberately hidden in this preview", 18, 0xFFD4DCE5, false));
+        prayers.setPadding(px(22), px(14), px(22), px(12));
+        prayers.setBackground(round(0xA8182536, 23, 0x45FFFFFF));
+
+        LinearLayout prayerHeading = new LinearLayout(this);
+        prayerHeading.setGravity(Gravity.CENTER_VERTICAL);
+        prayerHeading.setOrientation(LinearLayout.HORIZONTAL);
+        TextView prayerTitle = text("☪  WAKTU SOLAT · BRUNEI–MUARA", 25, Color.WHITE, true);
+        prayerTitle.setSingleLine(true);
+        prayerHeading.addView(prayerTitle, new LinearLayout.LayoutParams(0, -2, 1f));
+        prayerNextView = text("Checking timetable", 19, 0xFFF2D9A1, true);
+        prayerNextView.setSingleLine(true);
+        prayerNextView.setGravity(Gravity.RIGHT);
+        prayerHeading.addView(prayerNextView, new LinearLayout.LayoutParams(0, -2, 1f));
+        prayers.addView(prayerHeading);
+
+        LinearLayout prayerRow = new LinearLayout(this);
+        prayerRow.setOrientation(LinearLayout.HORIZONTAL);
+        prayerRow.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(-1, px(87));
+        rp.topMargin = px(9);
+        prayers.addView(prayerRow, rp);
+        for (int i = 0; i < 5; i++) {
+            LinearLayout cell = new LinearLayout(this);
+            cell.setOrientation(LinearLayout.VERTICAL);
+            cell.setGravity(Gravity.CENTER);
+            cell.setPadding(px(4), px(5), px(4), px(5));
+            TextView name = text(PrayerSchedule2026.PRAYERS[i], 21, 0xFFE5EBF5, false);
+            name.setGravity(Gravity.CENTER);
+            cell.addView(name);
+            TextView value = text("--:--", 28, Color.WHITE, true);
+            value.setGravity(Gravity.CENTER);
+            LinearLayout.LayoutParams vp = new LinearLayout.LayoutParams(-1, -2);
+            vp.topMargin = px(2);
+            cell.addView(value, vp);
+            prayerTiles[i] = cell;
+            prayerTimeViews[i] = value;
+            LinearLayout.LayoutParams cellParams = new LinearLayout.LayoutParams(0, -1, 1f);
+            cellParams.leftMargin = px(3);
+            cellParams.rightMargin = px(3);
+            prayerRow.addView(cell, cellParams);
+        }
+
+        LinearLayout prayerFooter = new LinearLayout(this);
+        prayerFooter.setOrientation(LinearLayout.HORIZONTAL);
+        prayerPeriodView = text("", 17, 0xFFF0D9A9, true);
+        prayerPeriodView.setSingleLine(true);
+        prayerFooter.addView(prayerPeriodView, new LinearLayout.LayoutParams(0, -2, 1f));
+        prayerSourceView = text("2026 PDI · Offline · Asia/Brunei", 16, 0xFFD2DAE6, false);
+        prayerSourceView.setGravity(Gravity.RIGHT);
+        prayerSourceView.setSingleLine(true);
+        prayerFooter.addView(prayerSourceView, new LinearLayout.LayoutParams(0, -2, 1f));
+        prayers.addView(prayerFooter);
         stage.addView(prayers, pos(px(465), px(44), px(890), -2));
+        updatePrayerPanel();
 
         weather = new WeatherWidget(this, scale);
         weather.setBackground(round(0x8F162739, 24, 0x30FFFFFF));
@@ -632,6 +690,9 @@ public final class HybridActivity extends Activity {
         updateGreeting();
         ui.removeCallbacks(greetingTick);
         ui.postDelayed(greetingTick, GREETING_REFRESH_MS);
+        ui.removeCallbacks(prayerTick);
+        updatePrayerPanel();
+        ui.postDelayed(prayerTick, PRAYER_REFRESH_MS);
         startPhotos();
         View focus = getCurrentFocus();
         if (focus != null && STREMIO.equals(focus.getTag())) showSelection(STREMIO, "Stremio");
@@ -652,6 +713,87 @@ public final class HybridActivity extends Activity {
                 : hour < 12 ? "GOOD MORNING"
                 : hour < 18 ? "GOOD AFTERNOON" : "GOOD EVENING";
         greetingView.setText(greeting);
+    }
+
+    /**
+     * Five daily times from PDI: Subuh, Zuhur, Asar, Maghrib, Isyak.
+     * Syuruk is a boundary, not an obligatory prayer. Don't label Subuh
+     * active after sunrise, or mislabel Asar during the following night.
+     * The next event rolls over to TOMORROW's verified Subuh after Isyak.
+     */
+    private void updatePrayerPanel() {
+        if (prayerNextView == null) return;
+        Calendar now = Calendar.getInstance(BRUNEI_ZONE);
+        int[] d = PrayerSchedule2026.get(now);
+        if (d == null) {
+            prayerNextView.setText("Timetable unavailable");
+            prayerPeriodView.setText("No verified entry for this date");
+            prayerSourceView.setText("Verified Oct–Dec 2026 only");
+            for (int i = 0; i < 5; i++) {
+                prayerTimeViews[i].setText("--:--");
+                prayerTiles[i].setBackground(null);
+            }
+            return;
+        }
+
+        int[] indices = {0, 2, 3, 4, 5};
+        int minutes = now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE);
+        long nowMs = now.getTimeInMillis();
+        int current = -1;
+        if (minutes >= d[5]) current = 4;
+        else if (minutes >= d[4]) current = 3;
+        else if (minutes >= d[3]) current = 2;
+        else if (minutes >= d[2]) current = 1;
+        else if (minutes >= d[0] && minutes < d[1]) current = 0;
+
+        String period;
+        if (minutes < d[0]) period = "Night · awaiting Subuh";
+        else if (minutes < d[1]) period = "Current: Subuh";
+        else if (minutes < d[2]) period = "After Syuruk · before Zuhur";
+        else period = "Current: " + PrayerSchedule2026.PRAYERS[current];
+        prayerPeriodView.setText(period);
+        prayerSourceView.setText("PDI 2026 · Offline · Brunei-Muara");
+
+        for (int i = 0; i < 5; i++) {
+            prayerTimeViews[i].setText(PrayerSchedule2026.format(d[indices[i]]));
+            // The gold highlight only identifies a prayer period that has started.
+            prayerTiles[i].setBackground(i == current
+                    ? round(0xB5936F37, 18, 0xFFE8BD67) : null);
+        }
+
+        int next = -1;
+        int targetMin = -1;
+        Calendar eventDay = now;
+        for (int i = 0; i < 5; i++) {
+            int v = d[indices[i]];
+            if (minutes < v) { next = i; targetMin = v; break; }
+        }
+        if (next < 0) {
+            // After today's Isyak, countdown is to tomorrow's Subuh,
+            // but ONLY if tomorrow is covered by the verified timetable.
+            Calendar tomorrow = PrayerSchedule2026.nextDay(now);
+            int[] later = PrayerSchedule2026.get(tomorrow);
+            if (later == null) {
+                prayerNextView.setText("Tomorrow: times unavailable");
+                return;
+            }
+            next = 0;
+            targetMin = later[0];
+            eventDay = tomorrow;
+        }
+
+        Calendar event = (Calendar) eventDay.clone();
+        event.set(Calendar.HOUR_OF_DAY, targetMin / 60);
+        event.set(Calendar.MINUTE, targetMin % 60);
+        event.set(Calendar.SECOND, 0);
+        event.set(Calendar.MILLISECOND, 0);
+        long delta = Math.max(0, event.getTimeInMillis() - nowMs);
+        long remaining = (delta + 59999L) / 60000L;
+        String eta = remaining >= 60
+                ? (remaining / 60) + "h " + (remaining % 60) + "m"
+                : remaining + "m";
+        prayerNextView.setText("Next: " + PrayerSchedule2026.PRAYERS[next]
+                + " " + PrayerSchedule2026.format(targetMin) + " · in " + eta);
     }
 
     private File photoFolder() {
