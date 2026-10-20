@@ -460,7 +460,7 @@ adb shell cmd package set-home-activity com.ansub.tvhome/com.ansub.tvhome.MainAc
 adb shell input keyevent KEYCODE_HOME
 ```
 
-The second app keeps a **separate** app-shortcut configuration because it is a separate Android package. The source includes existing YouTube/Stremio shortcut support, but any saved tiles must be set up again in Home Photos. No existing app is removed or disabled by this build or installation method.
+The second app keeps a **separate** app-shortcut configuration because it is a separate Android package. The `apps-photos.txt` defaults place **YouTube and Stremio** first, with other installed TV apps filling remaining positions. Any additional saved arrangements must be configured again in Home Photos. No existing app is removed or disabled by this build or installation method.
 
 ## Contributing
 
