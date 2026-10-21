@@ -234,7 +234,7 @@ public final class HybridActivity extends Activity {
         // and bottom. Instead, position a near-16:9 viewport on the RIGHT:
         // it keeps the character and most of the composition visible.
         hero = new FrameLayout(this);
-        hero.setBackground(round(0xD1141C2B, 30, 0x62FFFFFF));
+        hero.setBackground(round(0xCE242E39, 30, 0x66FFFFFF));
         hero.setClipToOutline(true);
         // Media art belongs exclusively inside the selected-app hero card.
         // The underlying TvWallpaperView keeps cycling personal photos and is
@@ -243,7 +243,10 @@ public final class HybridActivity extends Activity {
         heroArtwork.setScaleType(ImageView.ScaleType.CENTER_CROP);
         heroArtwork.setVisibility(View.GONE);
         FrameLayout.LayoutParams artParams = new FrameLayout.LayoutParams(
-                px(850), -1, Gravity.RIGHT | Gravity.TOP);
+                px(446), px(260), Gravity.RIGHT | Gravity.CENTER_VERTICAL);
+        artParams.rightMargin = px(21);
+        heroArtwork.setBackground(round(0xFF303A47, 17, 0x20FFFFFF));
+        heroArtwork.setClipToOutline(true);
         hero.addView(heroArtwork, artParams);
 
         // Heavy contrast strictly behind left-side metadata; gentle fade into
@@ -253,79 +256,79 @@ public final class HybridActivity extends Activity {
         heroShade.setBackground(new GradientDrawable(
                 GradientDrawable.Orientation.LEFT_RIGHT,
                 new int[] {
-                    0xFA121A2A,  // opaque behind title / progress
-                    0xEF141B2A,
-                    0xC5161D2A,
-                    0x69151B26,
-                    0x07151B26   // almost transparent over the art at right
+                    0xEF1B2532,  // readable title without a black slab
+                    0xD51B2532,
+                    0x9D1B2532,
+                    0x171B2532,
+                    0x001B2532   // photo and art remain distinct
                 }));
         hero.addView(heroShade, new FrameLayout.LayoutParams(-1, -1));
 
         LinearLayout writing = new LinearLayout(this);
         writing.setOrientation(LinearLayout.VERTICAL);
         writing.setGravity(Gravity.CENTER_VERTICAL);
-        writing.setPadding(px(48), px(34), px(12), px(34));
-        heroEyebrow = text("CONTINUE WATCHING", 25, 0xFFD8E1F0, true);
-        heroEyebrow.setLetterSpacing(0.13f);
+        writing.setPadding(px(30), px(18), px(10), px(18));
+        heroEyebrow = text("CONTINUE WATCHING", 19, 0xFFD8E1F0, true);
+        heroEyebrow.setLetterSpacing(0.085f);
         writing.addView(heroEyebrow);
 
-        heading = text("", 66, Color.WHITE, true);
+        heading = text("", 52, Color.WHITE, true);
         heading.setMaxLines(2);
         heading.setEllipsize(TextUtils.TruncateAt.END);
         LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(-1, -2);
-        titleParams.topMargin = px(33);
+        titleParams.topMargin = px(23);
         writing.addView(heading, titleParams);
 
-        details = text("", 30, 0xFFEBF0F7, false);
+        details = text("", 25, 0xFFEBF0F7, false);
         details.setMaxLines(2);
         details.setEllipsize(TextUtils.TruncateAt.END);
         LinearLayout.LayoutParams detailsParams = new LinearLayout.LayoutParams(-1, -2);
-        detailsParams.topMargin = px(15);
+        detailsParams.topMargin = px(9);
         writing.addView(details, detailsParams);
 
         playbackProgress = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
         playbackProgress.setMax(1000);
         playbackProgress.setProgress(0);
-        playbackProgress.setProgressTintList(ColorStateList.valueOf(0xFF9C7BFA));
+        playbackProgress.setProgressTintList(ColorStateList.valueOf(0xFF94C8FF));
         playbackProgress.setProgressBackgroundTintList(ColorStateList.valueOf(0x70FFFFFF));
         playbackProgress.setVisibility(View.GONE);
-        LinearLayout.LayoutParams trackParams = new LinearLayout.LayoutParams(-1, px(10));
-        trackParams.topMargin = px(30);
+        LinearLayout.LayoutParams trackParams = new LinearLayout.LayoutParams(-1, px(6));
+        trackParams.topMargin = px(20);
         writing.addView(playbackProgress, trackParams);
 
-        footnote = text("", 23, 0xFFE1E6F0, false);
+        footnote = text("", 19, 0xFFE1E6F0, false);
         footnote.setMaxLines(2);
         footnote.setEllipsize(TextUtils.TruncateAt.END);
         LinearLayout.LayoutParams footnoteParams = new LinearLayout.LayoutParams(-1, -2);
-        footnoteParams.topMargin = px(14);
+        footnoteParams.topMargin = px(9);
         writing.addView(footnote, footnoteParams);
 
-        heroAction = text("▶  Press OK to open", 23, Color.WHITE, true);
+        heroAction = text("▶  Press OK to open", 20, Color.WHITE, true);
         heroAction.setGravity(Gravity.CENTER_VERTICAL);
-        heroAction.setPadding(px(24), px(13), px(24), px(13));
-        heroAction.setBackground(round(0xAA452C83, 18, 0xFF9B78ED));
+        heroAction.setPadding(px(18), px(10), px(18), px(10));
+        heroAction.setBackground(round(0x9A345477, 18, 0xA0B1D5FF));
         LinearLayout.LayoutParams actionParams = new LinearLayout.LayoutParams(-2, -2);
-        actionParams.topMargin = px(29);
+        actionParams.topMargin = px(17);
         writing.addView(heroAction, actionParams);
 
         // Keep text within the left half, leaving the right half visually cinematic.
         FrameLayout.LayoutParams textParams = new FrameLayout.LayoutParams(
-                px(730), -1, Gravity.LEFT | Gravity.TOP);
+                px(611), -1, Gravity.LEFT | Gravity.TOP);
         hero.addView(writing, textParams);
         hero.setVisibility(View.GONE);
-        stage.addView(hero, pos(px(68), px(274), px(1310), px(536)));
+        stage.addView(hero, pos(px(74), px(275), px(1065), px(412)));
 
         LinearLayout dock = new LinearLayout(this);
         dock.setOrientation(LinearLayout.HORIZONTAL);
         dock.setGravity(Gravity.CENTER);
         dock.setClipChildren(false);
         dock.setClipToPadding(false);
-        dock.setPadding(px(17), px(20), px(17), px(20));
-        dock.setBackground(round(0xC3172130, 30, 0x4EFFFFFF));
-        FrameLayout.LayoutParams dockParams = new FrameLayout.LayoutParams(-1, px(182), Gravity.BOTTOM);
-        dockParams.leftMargin = px(56);
-        dockParams.rightMargin = px(56);
-        dockParams.bottomMargin = px(56);
+        dock.setPadding(px(18), px(15), px(18), px(15));
+        dock.setBackground(round(0xB5293542, 33, 0x56FFFFFF));
+        FrameLayout.LayoutParams dockParams = new FrameLayout.LayoutParams(-1, px(165), Gravity.BOTTOM);
+        dockParams.leftMargin = px(164);
+        dockParams.rightMargin = px(164);
+        dockParams.bottomMargin = px(51);
         stage.addView(dock, dockParams);
         buildDock(dock);
 
@@ -479,7 +482,7 @@ public final class HybridActivity extends Activity {
     private void addDockTile(LinearLayout dock, String pkg, String label,
                              Drawable banner, Drawable appIcon, Runnable activate) {
         final LinearLayout tile = new LinearLayout(this);
-        tile.setOrientation(LinearLayout.HORIZONTAL);
+        tile.setOrientation(LinearLayout.VERTICAL);
         tile.setGravity(Gravity.CENTER);
         tile.setFocusable(true);
         tile.setFocusableInTouchMode(true);
@@ -512,7 +515,12 @@ public final class HybridActivity extends Activity {
                     ? LineIcon.HDMI : LineIcon.SETTINGS));
             system.setScaleType(ImageView.ScaleType.FIT_CENTER);
             system.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-            tile.addView(system, new LinearLayout.LayoutParams(px(78), px(78)));
+            tile.addView(system, new LinearLayout.LayoutParams(px(55), px(55)));
+            TextView caption = text(label, 19, 0xE8FFFFFF, true);
+            caption.setGravity(Gravity.CENTER);
+            LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(-1, -2);
+            cp.topMargin = px(5);
+            tile.addView(caption, cp);
         } else {
             // TV-shaped fallback for apps with NO Leanback banner:
             // a horizontal brand-mark + wordmark INSIDE the tile.
@@ -561,8 +569,8 @@ public final class HybridActivity extends Activity {
             // One rounded highlight only; original TV banner stays unchanged.
             tile.setForeground(focused ? dockFocusOutline() : null);
             tile.setElevation(focused ? px(12) : 0);
-            tile.animate().scaleX(focused ? 1.045f : 1f)
-                    .scaleY(focused ? 1.045f : 1f).setDuration(155).start();
+            tile.animate().scaleX(focused ? 1.06f : 1f)
+                    .scaleY(focused ? 1.06f : 1f).setDuration(180).start();
             if (focused) showSelection(pkg, label);
         });
         tile.setOnClickListener(v -> {
@@ -571,7 +579,7 @@ public final class HybridActivity extends Activity {
             }
         });
         dockTiles.add(tile);
-        LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(0, px(136), 1f);
+        LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(0, px(129), 1f);
         tp.leftMargin = px(8);
         tp.rightMargin = px(8);
         dock.addView(tile, tp);
@@ -585,7 +593,7 @@ public final class HybridActivity extends Activity {
         GradientDrawable stroke = new GradientDrawable();
         stroke.setColor(Color.TRANSPARENT);
         stroke.setCornerRadius(px(18));
-        stroke.setStroke(px(3), 0xFF95BDFB);
+        stroke.setStroke(px(2), 0xFFB6D9FF);
         return new InsetDrawable(stroke, px(3));
     }
 
@@ -604,8 +612,8 @@ public final class HybridActivity extends Activity {
             bottom = 0xE5202836;
         }
         if (focused) {
-            top = 0xF4465278;
-            bottom = 0xF1283556;
+            top = 0xE748617E;
+            bottom = 0xDA354863;
         }
         GradientDrawable background = new GradientDrawable(
                 GradientDrawable.Orientation.TL_BR, new int[]{top, bottom});
@@ -801,6 +809,10 @@ public final class HybridActivity extends Activity {
     }
 
     private void showSelection(String pkg, String label) {
+        if (!STREMIO.equals(pkg) && !YOUTUBE.equals(pkg)) {
+            showIdle(); // Utility navigation stays quiet; wallpaper remains primary.
+            return;
+        }
         heroArtwork.setVisibility(View.GONE);
         heroArtwork.setImageDrawable(null);
         hero.setVisibility(View.VISIBLE);
