@@ -6,7 +6,7 @@ set -eu
 umask 077
 cd "$(dirname "$0")"
 MODE="${MODE:-smoke}"
-case "$MODE" in smoke|release|preview) ;; *) echo "Unsupported MODE" >&2; exit 2;; esac
+case "$MODE" in smoke|release|preview|glass) ;; *) echo "Unsupported MODE" >&2; exit 2;; esac
 SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
 [ -n "$SDK" ] || { echo "Set ANDROID_HOME" >&2; exit 1; }
 BT="$SDK/build-tools/34.0.0"
@@ -24,6 +24,7 @@ mkdir -p "$OUT/classes" "$OUT/dex" "$OUT/gen/com/ansub/tvhome"
 
 MANIFEST=AndroidManifest-hybrid-stable.xml
 if [ "$MODE" = preview ]; then MANIFEST=AndroidManifest-hybrid-youtube-preview.xml; fi
+if [ "$MODE" = glass ]; then MANIFEST=AndroidManifest-hybrid-glass-preview.xml; fi
 "$BT/aapt2" link -o "$OUT/base.apk" -I "$JAR" \
   --manifest "$MANIFEST" --min-sdk-version 26 --target-sdk-version 30
 # shellcheck disable=SC2046
@@ -67,6 +68,7 @@ else
     -dname 'CN=CI smoke test ONLY' >/dev/null 2>&1
   TEST_APK="$OUT/hybrid-tv-v1-smoke-NOT-RELEASE.apk"
   if [ "$MODE" = preview ]; then TEST_APK="$OUT/hybrid-tv-v1.0.1-youtube-preview.apk"; fi
+  if [ "$MODE" = glass ]; then TEST_APK="$OUT/hybrid-tv-glass-v1.1-preview.apk"; fi
   "$BT/apksigner" sign --ks "$KEY_TMP" --ks-key-alias ci-smoke \
     --ks-pass pass:smoke-test-only --key-pass pass:smoke-test-only \
     --out "$TEST_APK" "$OUT/aligned.apk"
