@@ -491,7 +491,12 @@ public final class HybridActivity extends Activity {
         // Preserve names to screen readers, but never put a caption below art.
         tile.setContentDescription("Hybrid dock: " + label);
         tile.setTag(pkg);
-        tile.setBackground(dockSurface(pkg, false));
+        // Cache drawables once, not on every remote focus transition.
+        // The TCL GPU should animate transform/elevation, not allocate glass.
+        final Drawable restingGlass = dockSurface(pkg, false);
+        final Drawable focusedGlass = dockSurface(pkg, true);
+        final Drawable focusRing = dockFocusOutline();
+        tile.setBackground(restingGlass);
         // Focus outline lives only in the foreground. Do NOT paint a blue
         // background stroke as well, or TCL shows two offset rectangles.
         tile.setForeground(null);
@@ -565,9 +570,9 @@ public final class HybridActivity extends Activity {
         }
 
         tile.setOnFocusChangeListener((v, focused) -> {
-            tile.setBackground(dockSurface(pkg, focused));
+            tile.setBackground(focused ? focusedGlass : restingGlass);
             // One rounded highlight only; original TV banner stays unchanged.
-            tile.setForeground(focused ? dockFocusOutline() : null);
+            tile.setForeground(focused ? focusRing : null);
             tile.setElevation(focused ? px(12) : 0);
             tile.animate().scaleX(focused ? 1.06f : 1f)
                     .scaleY(focused ? 1.06f : 1f).setDuration(180).start();
