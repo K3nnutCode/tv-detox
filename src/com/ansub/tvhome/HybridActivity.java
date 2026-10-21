@@ -69,7 +69,7 @@ public final class HybridActivity extends Activity {
     private final ArrayList<View> dockTiles = new ArrayList<>();
     private final ArrayList<File> photos = new ArrayList<>();
     private TvWallpaperView photo;
-    private ImageView cinematic, heroArtwork;
+    private ImageView heroArtwork;
     private TextView heading, details, footnote, greetingView, heroEyebrow, heroAction;
     private TextView prayerNextView, prayerPeriodView, prayerSourceView;
     private final TextView[] prayerTimeViews = new TextView[5];
@@ -110,11 +110,6 @@ public final class HybridActivity extends Activity {
         photo = new TvWallpaperView(this);
         stage.addView(photo, new FrameLayout.LayoutParams(-1,-1));
 
-        cinematic = new ImageView(this);
-        cinematic.setScaleType(ImageView.ScaleType.CENTER_CROP);
-        cinematic.setColorFilter(0x90000000, PorterDuff.Mode.SRC_ATOP);
-        cinematic.setVisibility(View.GONE);
-        stage.addView(cinematic, new FrameLayout.LayoutParams(-1,-1));
 
         View shade = new View(this);
         shade.setBackground(new GradientDrawable(GradientDrawable.Orientation.BOTTOM_TOP,
@@ -223,6 +218,9 @@ public final class HybridActivity extends Activity {
         hero = new FrameLayout(this);
         hero.setBackground(round(0xD1141C2B, 30, 0x62FFFFFF));
         hero.setClipToOutline(true);
+        // Media art belongs exclusively inside the selected-app hero card.
+        // The underlying TvWallpaperView keeps cycling personal photos and is
+        // never replaced by Stremio or YouTube thumbnails.
         heroArtwork = new ImageView(this);
         heroArtwork.setScaleType(ImageView.ScaleType.CENTER_CROP);
         heroArtwork.setVisibility(View.GONE);
@@ -371,10 +369,6 @@ public final class HybridActivity extends Activity {
     private void showIdle() {
         if (hero != null) hero.setVisibility(View.GONE);
         if (playbackProgress != null) playbackProgress.setVisibility(View.GONE);
-        if (cinematic != null) {
-            cinematic.setVisibility(View.GONE);
-            cinematic.setImageDrawable(null);
-        }
         if (heroArtwork != null) {
             heroArtwork.setVisibility(View.GONE);
             heroArtwork.setImageDrawable(null);
@@ -585,8 +579,6 @@ public final class HybridActivity extends Activity {
     }
 
     private void showSelection(String pkg, String label) {
-        cinematic.setVisibility(View.GONE);
-        cinematic.setImageDrawable(null);
         heroArtwork.setVisibility(View.GONE);
         heroArtwork.setImageDrawable(null);
         hero.setVisibility(View.VISIBLE);
@@ -669,8 +661,6 @@ public final class HybridActivity extends Activity {
         if (snapshot.artwork != null && !snapshot.artwork.isRecycled()) {
             heroArtwork.setImageBitmap(snapshot.artwork);
             heroArtwork.setVisibility(View.VISIBLE);
-            cinematic.setImageBitmap(snapshot.artwork);
-            cinematic.setVisibility(View.VISIBLE);
         }
     }
 
@@ -720,8 +710,6 @@ public final class HybridActivity extends Activity {
                 if (bmp != null) {
                     heroArtwork.setImageBitmap(bmp);
                     heroArtwork.setVisibility(View.VISIBLE);
-                    cinematic.setImageBitmap(bmp);
-                    cinematic.setVisibility(View.VISIBLE);
                 }
                 // Also snapshot from foreground view (background service is
                 // best-effort on vendor TV firmware).
@@ -760,8 +748,6 @@ public final class HybridActivity extends Activity {
         if (saved.artwork != null) {
             heroArtwork.setImageBitmap(saved.artwork);
             heroArtwork.setVisibility(View.VISIBLE);
-            cinematic.setImageBitmap(saved.artwork);
-            cinematic.setVisibility(View.VISIBLE);
         }
     }
 
