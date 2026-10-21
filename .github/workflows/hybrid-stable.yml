@@ -143,6 +143,18 @@ jobs:
           java-version: '17'
       - name: Android SDK 34
         run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-34" "build-tools;34.0.0" >/dev/null
+      - name: Verify personal-photo wallpaper is not replaced by media artwork
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=src/com/ansub/tvhome/HybridActivity.java
+          grep -Fq 'photo = new TvWallpaperView(this)' "$SRC"
+          grep -Fq 'SLIDE_MS = 60000L' "$SRC"
+          grep -Fq 'heroArtwork.setImageBitmap(' "$SRC"
+          if grep -Eq 'cinematic\\.(setImageBitmap|setVisibility|setImageDrawable)' "$SRC"; then
+            echo 'FAIL: video thumbnail must not replace the photo wallpaper' >&2
+            exit 1
+          fi
       - name: Build isolated preview using disposable signing key
         env:
           MODE: preview
