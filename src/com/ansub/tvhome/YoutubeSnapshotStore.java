@@ -52,6 +52,30 @@ final class YoutubeSnapshotStore {
         return s.isEmpty() ? null : s;
     }
 
+    /** In-memory preview of the live session; no disk write or invented fields. */
+    static Snapshot current(MediaMetadata metadata, PlaybackState state) {
+        if (metadata == null || state == null) return null;
+        int kind = state.getState();
+        if (kind != PlaybackState.STATE_PLAYING && kind != PlaybackState.STATE_PAUSED
+                && kind != PlaybackState.STATE_BUFFERING) return null;
+        MediaDescription description = metadata.getDescription();
+        String title = value(metadata.getText(MediaMetadata.METADATA_KEY_DISPLAY_TITLE));
+        if (title == null) title = value(metadata.getText(MediaMetadata.METADATA_KEY_TITLE));
+        if (title == null && description != null) title = value(description.getTitle());
+        if (title == null) return null;
+        String subtitle = value(metadata.getText(MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE));
+        if (subtitle == null) subtitle = value(metadata.getText(MediaMetadata.METADATA_KEY_ARTIST));
+        if (subtitle == null && description != null) subtitle = value(description.getSubtitle());
+        Bitmap art = metadata.getBitmap(MediaMetadata.METADATA_KEY_DISPLAY_ICON);
+        if (art == null) art = metadata.getBitmap(MediaMetadata.METADATA_KEY_ART);
+        if (art == null) art = metadata.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART);
+        if (art == null && description != null) art = description.getIconBitmap();
+        long duration = metadata.containsKey(MediaMetadata.METADATA_KEY_DURATION)
+                ? metadata.getLong(MediaMetadata.METADATA_KEY_DURATION) : -1L;
+        return new Snapshot(title, subtitle == null ? "" : subtitle, duration,
+                state.getPosition(), System.currentTimeMillis(), art);
+    }
+
     static void capture(Context context, MediaMetadata metadata, PlaybackState state) {
         if (metadata == null || state == null) return;
         int kind = state.getState();
