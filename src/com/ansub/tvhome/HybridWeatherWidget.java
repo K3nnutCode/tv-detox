@@ -54,11 +54,16 @@ final class HybridWeatherWidget extends LinearLayout {
     private int consecutiveFailures;
 
     HybridWeatherWidget(Context context, float scale) {
+        this(context, scale, false);
+    }
+
+    HybridWeatherWidget(Context context, float scale, boolean compact) {
         super(context);
         cache = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
         setOrientation(VERTICAL);
         setGravity(Gravity.END);
-        setPadding(size(26, scale), size(20, scale), size(26, scale), size(18, scale));
+        setPadding(size(compact ? 10 : 26, scale), size(compact ? 4 : 20, scale),
+                size(compact ? 10 : 26, scale), size(compact ? 4 : 18, scale));
         setFocusable(false);
         setClickable(false);
 
@@ -67,30 +72,30 @@ final class HybridWeatherWidget extends LinearLayout {
         bg.setCornerRadius(size(28, scale));
         setBackground(bg);
 
-        TextView city = line(context, "BANDAR SERI BEGAWAN", 19, 0xD1FFFFFF, scale);
+        TextView city = line(context, "BANDAR SERI BEGAWAN", compact ? 14 : 19, 0xD1FFFFFF, scale);
         addView(city);
         // Center the condition glyph beside the temperature; keep all text right-aligned.
         LinearLayout stats = new LinearLayout(context);
         stats.setOrientation(HORIZONTAL);
         stats.setGravity(Gravity.CENTER_VERTICAL | Gravity.RIGHT);
         LinearLayout.LayoutParams statsParams = new LinearLayout.LayoutParams(-1, -2);
-        statsParams.topMargin = size(5, scale);
+        statsParams.topMargin = size(compact ? 0 : 5, scale);
         addView(stats, statsParams);
         weatherIcon = new ImageView(context);
         weatherIcon.setImageDrawable(new WeatherGlyph(-1, true));
         weatherIcon.setContentDescription("Weather condition");
         weatherIcon.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        LinearLayout.LayoutParams iconParams = new LinearLayout.LayoutParams(size(104, scale), size(104, scale));
-        iconParams.rightMargin = size(12, scale);
+        LinearLayout.LayoutParams iconParams = new LinearLayout.LayoutParams(size(compact ? 61 : 104, scale), size(compact ? 61 : 104, scale));
+        iconParams.rightMargin = size(compact ? 6 : 12, scale);
         stats.addView(weatherIcon, iconParams);
-        degrees = line(context, "--°C", 60, Color.WHITE, scale);
+        degrees = line(context, "--°C", compact ? 49 : 60, Color.WHITE, scale);
         degrees.setGravity(Gravity.END);
         stats.addView(degrees);
-        description = line(context, "Weather unavailable", 24, 0xEEFFFFFF, scale);
+        description = line(context, "Weather unavailable", compact ? 18 : 24, 0xEEFFFFFF, scale);
         addView(description);
-        TextView attribution = line(context, "Weather: Open-Meteo.com", 16, 0xB0FFFFFF, scale);
+        TextView attribution = line(context, "Weather: Open-Meteo.com", compact ? 12 : 16, 0xB0FFFFFF, scale);
         LinearLayout.LayoutParams ap = new LinearLayout.LayoutParams(-2, -2);
-        ap.topMargin = size(8, scale);
+        ap.topMargin = size(compact ? 2 : 8, scale);
         addView(attribution, ap);
         showCached();
     }
