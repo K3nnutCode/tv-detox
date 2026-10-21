@@ -726,10 +726,8 @@ public final class HybridActivity extends Activity {
                 TvContract.buildChannelUriForPassthroughInput(selected.info.getId()));
         view.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         try {
-            if (view.resolveActivity(getPackageManager()) == null) {
-                Toast.makeText(this, "TCL source player is unavailable", Toast.LENGTH_LONG).show();
-                return;
-            }
+            // startActivity can resolve an intent even when Android 11 package
+            // visibility prevents resolveActivity() from seeing its handler.
             startActivity(view);
             if (dialog != null) dialog.dismiss();
         } catch (RuntimeException e) {
