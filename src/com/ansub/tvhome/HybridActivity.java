@@ -2,6 +2,7 @@ package com.ansub.tvhome;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.app.NotificationManager;
 import android.content.ComponentName;
 import android.content.Intent;
@@ -38,6 +39,8 @@ import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
+import android.widget.ScrollView;
+import android.widget.Toast;
 import android.widget.TextClock;
 import android.widget.TextView;
 
@@ -339,6 +342,16 @@ public final class HybridActivity extends Activity {
         final boolean select = code == KeyEvent.KEYCODE_DPAD_CENTER
                 || code == KeyEvent.KEYCODE_ENTER
                 || code == KeyEvent.KEYCODE_NUMPAD_ENTER;
+        // The vendor may intercept hardware Settings/Input keys before they
+        // reach the Home app. This handles them whenever Android delivers them.
+        if (code == KeyEvent.KEYCODE_SETTINGS || code == KeyEvent.KEYCODE_MENU
+                || code == KeyEvent.KEYCODE_TV_INPUT) {
+            if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0) {
+                if (code == KeyEvent.KEYCODE_TV_INPUT) showTvInputSelector();
+                else openTvSettings();
+            }
+            return true;
+        }
         if (!direction && !select) return super.dispatchKeyEvent(event);
 
         if (event.getAction() == KeyEvent.ACTION_DOWN) {
@@ -414,9 +427,8 @@ public final class HybridActivity extends Activity {
             addDockTile(dock, pkg, label, banner, icon,
                     () -> { intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); startActivity(intent); });
         }
-        addDockTile(dock, "inputs", "Inputs", null, null, this::openFirstTvInput);
-        addDockTile(dock, "settings", "Settings", null, null,
-                () -> startActivity(new Intent(Settings.ACTION_SETTINGS)));
+        addDockTile(dock, "inputs", "Inputs", null, null, this::showTvInputSelector);
+        addDockTile(dock, "settings", "Settings", null, null, this::openTvSettings);
     }
 
     /** Original Android TV app banner, fitted to the unchanged TV dock tile. */
@@ -561,23 +573,189 @@ public final class HybridActivity extends Activity {
         return background;
     }
 
-    private void openFirstTvInput() {
-        try {
-            TvInputManager manager = (TvInputManager) getSystemService(TV_INPUT_SERVICE);
-            if (manager != null) {
-                for (TvInputInfo input : manager.getTvInputList()) {
-                    if (input.isPassthroughInput()) {
-                        Intent view = new Intent(Intent.ACTION_VIEW,
-                                TvContract.buildChannelUriForPassthroughInput(input.getId()));
-                        view.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                        startActivity(view);
-                        return;
-                    }
-                }
+    private static final class SourceEntry {
+        final TvInputInfo info;
+        final String label;
+        final int state;
+        SourceEntry(TvInputInfo info, String label, int state) {
+            this.info = info;
+            this.label = label;
+            this.state = state;
+        }
+    }
+
+    private String sourceLabel(TvInputInfo input) {
+        CharSequence custom = null;
+        CharSequence systemLabel = null;
+        try { custom = input.loadCustomLabel(this); }
+        catch (RuntimeException ignored) { }
+        try { systemLabel = input.loadLabel(this); }
+        catch (RuntimeException ignored) { }
+        String label = custom != null && custom.length() > 0 ? custom.toString()
+                : systemLabel != null ? systemLabel.toString() : "";
+        if (label.isEmpty()) {
+            label = input.getType() == TvInputInfo.TYPE_HDMI ? "HDMI"
+                    : input.getType() == TvInputInfo.TYPE_COMPOSITE ? "AV"
+                    : "TV source";
+        }
+        return label;
+    }
+
+    private int sourceSortKey(SourceEntry item) {
+        if (item.info.getType() == TvInputInfo.TYPE_HDMI) {
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile(
+                    "(?i)HDMI\\s*[-#:]?\\s*(\\d+)").matcher(item.label);
+            if (m.find()) {
+                try { return Integer.parseInt(m.group(1)); }
+                catch (NumberFormatException ignored) { }
             }
-        } catch (Exception ignored) { }
-        // Some TCL firmware restricts TV input intents to its own system UI.
-        startActivity(new Intent(Settings.ACTION_SETTINGS));
+            return 50;
+        }
+        return item.info.getType() == TvInputInfo.TYPE_COMPOSITE ? 100 : 200;
+    }
+
+    private String sourceStatus(int state) {
+        if (state == TvInputManager.INPUT_STATE_CONNECTED) return "Reported connected";
+        if (state == TvInputManager.INPUT_STATE_CONNECTED_STANDBY) return "Standby";
+        if (state == TvInputManager.INPUT_STATE_DISCONNECTED) return "Reported disconnected";
+        return "Status unknown";
+    }
+
+    private int sourceStatusColor(int state) {
+        if (state == TvInputManager.INPUT_STATE_CONNECTED) return 0xFF55D58A;
+        if (state == TvInputManager.INPUT_STATE_CONNECTED_STANDBY) return 0xFFFFCA70;
+        return 0xFF9DA6B8; // Grey for disconnected OR unknown, not false red.
+    }
+
+    /**
+     * Show actual TvInputInfo records, never guessed HDMI ids. TCL exposes
+     * four physical HDMI ports in dumpsys, but a cable status of 0 means
+     * UNKNOWN rather than physically unplugged. Public TvInputManager state
+     * may differ, so labels explicitly say "Reported".
+     */
+    private void showTvInputSelector() {
+        TvInputManager manager = (TvInputManager) getSystemService(TV_INPUT_SERVICE);
+        ArrayList<SourceEntry> sources = new ArrayList<>();
+        if (manager != null) {
+            try {
+                for (TvInputInfo input : manager.getTvInputList()) {
+                    if (!input.isPassthroughInput()) continue;
+                    String label = sourceLabel(input);
+                    // Hide tuner/app inputs; show hardware HDMI/AV and inputs
+                    // which TCL itself labels HDMI/AV even if type is generic.
+                    String upper = label.toUpperCase(Locale.US);
+                    boolean physical = input.getType() == TvInputInfo.TYPE_HDMI
+                            || input.getType() == TvInputInfo.TYPE_COMPOSITE
+                            || input.getType() == TvInputInfo.TYPE_COMPONENT
+                            || upper.startsWith("HDMI") || upper.equals("AV");
+                    if (!physical) continue;
+                    int state;
+                    try { state = manager.getInputState(input.getId()); }
+                    catch (RuntimeException ignored) { state = -1; }
+                    sources.add(new SourceEntry(input, label, state));
+                }
+            } catch (RuntimeException ignored) {
+                // Some OEMs do not publish TV input records to third parties.
+            }
+        }
+        Collections.sort(sources, (a,b) -> {
+            int sort = Integer.compare(sourceSortKey(a), sourceSortKey(b));
+            return sort != 0 ? sort : a.label.compareToIgnoreCase(b.label);
+        });
+
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(px(24), px(8), px(24), px(6));
+        TextView hint = text("Green: reported connected  ·  Amber: standby  ·  Grey: disconnected/unknown",
+                21, 0xFFD7DFEC, false);
+        hint.setPadding(0, px(6), 0, px(20));
+        content.addView(hint);
+
+        final View[] first = new View[1];
+        final AlertDialog[] holder = new AlertDialog[1];
+        for (SourceEntry source : sources) {
+            LinearLayout row = new LinearLayout(this);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            row.setPadding(px(18), px(13), px(18), px(13));
+            row.setFocusable(true);
+            row.setClickable(true);
+            row.setBackground(round(0xEC29354C, 16, 0x55FFFFFF));
+            if (first[0] == null) first[0] = row;
+            TextView title = text(source.label, 28, Color.WHITE, true);
+            title.setSingleLine(true);
+            row.addView(title, new LinearLayout.LayoutParams(0,-2,1f));
+            TextView status = text("●  " + sourceStatus(source.state), 20,
+                    sourceStatusColor(source.state), true);
+            status.setGravity(Gravity.RIGHT);
+            row.addView(status, new LinearLayout.LayoutParams(-2,-2));
+            row.setOnFocusChangeListener((v,focused) -> row.setBackground(
+                    round(focused ? 0xFF394F79 : 0xEC29354C,16,
+                            focused ? 0xFF95BDFB : 0x55FFFFFF)));
+            row.setOnClickListener(v -> switchTvInput(source, holder[0]));
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1,px(84));
+            lp.bottomMargin=px(8);
+            content.addView(row,lp);
+        }
+        if (sources.isEmpty()) {
+            TextView info = text("This TV has not exposed selectable HDMI/AV inputs to Hybrid TV."
+                    + " Use TCL's built-in Source menu; no port numbers will be guessed.",
+                    25, Color.WHITE, false);
+            content.addView(info);
+        }
+        ScrollView scroll = new ScrollView(this);
+        scroll.setFillViewport(false);
+        scroll.addView(content);
+        AlertDialog dialog = new AlertDialog.Builder(this,
+                android.R.style.Theme_Material_Dialog_Alert)
+                .setTitle("Select TV source")
+                .setView(scroll)
+                .setNegativeButton("Back", (d,which) -> d.dismiss())
+                .create();
+        holder[0] = dialog;
+        dialog.setOnShowListener(d -> {
+            if (first[0] != null) first[0].requestFocus();
+        });
+        dialog.show();
+    }
+
+    private void switchTvInput(SourceEntry selected, AlertDialog dialog) {
+        // A pass-through URI targets this exact published input, not the first
+        // available entry (which was AV on the user's TCL).
+        Intent view = new Intent(Intent.ACTION_VIEW,
+                TvContract.buildChannelUriForPassthroughInput(selected.info.getId()));
+        view.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        try {
+            if (view.resolveActivity(getPackageManager()) == null) {
+                Toast.makeText(this, "TCL source player is unavailable", Toast.LENGTH_LONG).show();
+                return;
+            }
+            startActivity(view);
+            if (dialog != null) dialog.dismiss();
+        } catch (RuntimeException e) {
+            Toast.makeText(this, "TCL blocked this source; try the TV's Input key",
+                    Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void openTvSettings() {
+        // This device resolved android.settings.SETTINGS to
+        // com.android.tv.settings/.MainSettings in the user's ADB test.
+        // Try that normal intent first; then the exact confirmed component.
+        Intent ordinary = new Intent(Settings.ACTION_SETTINGS);
+        ordinary.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        try {
+            startActivity(ordinary);
+            return;
+        } catch (RuntimeException ignored) { }
+        Intent explicit = new Intent(Intent.ACTION_MAIN);
+        explicit.setClassName("com.android.tv.settings", "com.android.tv.settings.MainSettings");
+        explicit.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        try {
+            startActivity(explicit);
+        } catch (RuntimeException e) {
+            Toast.makeText(this,"TV Settings could not be opened", Toast.LENGTH_LONG).show();
+        }
     }
 
     private void showSelection(String pkg, String label) {
