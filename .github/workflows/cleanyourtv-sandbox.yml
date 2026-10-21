@@ -1,0 +1,84 @@
+name: Test CleanYourTV without changing Home
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/cleanyourtv-sandbox.yml'
+  workflow_dispatch:
+
+# Build public source only. No secrets, release keys, or TV access.
+permissions:
+  contents: read
+
+jobs:
+  safe-tv-preview-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out pinned CleanYourTV upstream
+        uses: actions/checkout@v4
+        with:
+          repository: Gathin23/cleanyourtv
+          ref: 022c57da7c4f07466141229cb5625f6ae4fd7ba0
+          persist-credentials: false
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android SDK platform/build tools
+        shell: bash
+        run: |
+          set -e
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-34" "build-tools;34.0.0" >/dev/null || true
+          test -f "$ANDROID_HOME/platforms/android-34/android.jar"
+          test -x "$ANDROID_HOME/build-tools/34.0.0/aapt"
+      - name: Make test-only APK incapable of becoming default Home
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          m=Path('launcher/app/src/main/AndroidManifest.xml')
+          s=m.read_text()
+          home='''            <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.HOME" />
+                          <category android:name="android.intent.category.DEFAULT" />
+                      </intent-filter>'''
+          # Match the actual indentation of upstream's HOME intent-filter.
+          home=home.replace('                          ', '                ').replace('                      </intent-filter>', '            </intent-filter>')
+          assert s.count(home)==1, 'Unexpected upstream manifest; refusing potentially unsafe build'
+          m.write_text(s.replace(home,''))
+          n=Path('launcher/app/src/main/res/values/strings.xml')
+          t=n.read_text()
+          assert t.count('<string name="app_name">Home</string>')==1, 'Unexpected app label'
+          n.write_text(t.replace('<string name="app_name">Home</string>', '<string name="app_name">CleanYourTV Test</string>'))
+          print('Removed HOME intent filter. Kept LEANBACK_LAUNCHER entry for manual testing.')
+          PY
+      - name: Build test-only CleanYourTV APK (no install)
+        shell: bash
+        working-directory: launcher
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon :app:assembleRelease --console=plain
+      - name: Verify APK does not claim HOME
+        shell: bash
+        run: |
+          set -eu
+          APK=launcher/app/build/outputs/apk/release/app-release.apk
+          test -s "$APK"
+          "$ANDROID_HOME/build-tools/34.0.0/aapt" dump badging "$APK" | grep -F "package: name='com.gathin.tvhome'"
+          "$ANDROID_HOME/build-tools/34.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml > /tmp/cleanyourtv-manifest.txt
+          if grep -q 'android.intent.category.HOME' /tmp/cleanyourtv-manifest.txt; then
+            echo 'Unsafe APK: still registers as a HOME launcher. Refusing upload.' >&2
+            exit 1
+          fi
+          grep -q 'android.intent.category.LEANBACK_LAUNCHER' /tmp/cleanyourtv-manifest.txt
+          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify "$APK"
+          sha256sum "$APK"
+          echo 'PASS: signed, launchable from TV apps, cannot register as Home.'
+      - name: Upload test-only APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: cleanyourtv-test-only-apk
+          path: launcher/app/build/outputs/apk/release/app-release.apk
+          retention-days: 14
