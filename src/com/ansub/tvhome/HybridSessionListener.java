@@ -14,19 +14,27 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Owner-enabled Android media-session observation while Stremio is foreground.
+ * Owner-enabled Android media-session observation for Stremio and YouTube TV.
  * Android's notification-listener permission is broad, but this implementation
- * NEVER examines notification contents; only com.stremio.one sessions are read.
+ * NEVER examines notification contents; only opted-in Stremio and YouTube sessions are read.
  * Runs only if the user has explicitly enabled notification access.
  */
 public final class HybridSessionListener extends NotificationListenerService {
     private static final String STREMIO = "com.stremio.one";
+    private static final String YOUTUBE = "com.google.android.youtube.tv";
     private final Handler main = new Handler(Looper.getMainLooper());
     private MediaSessionManager sessions;
     private MediaController stremioController;
+    private MediaController youtubeController;
     private boolean connected;
 
     private final MediaController.Callback controllerCallback = new MediaController.Callback() {
+        @Override public void onMetadataChanged(MediaMetadata metadata) { saveCurrent(); }
+        @Override public void onPlaybackStateChanged(PlaybackState state) { saveCurrent(); }
+        @Override public void onSessionDestroyed() { attach(null); }
+    };
+
+    private final MediaController.Callback youtubeCallback = new MediaController.Callback() {
         @Override public void onMetadataChanged(MediaMetadata metadata) { saveCurrent(); }
         @Override public void onPlaybackStateChanged(PlaybackState state) { saveCurrent(); }
         @Override public void onSessionDestroyed() { attach(null); }
@@ -65,12 +73,11 @@ public final class HybridSessionListener extends NotificationListenerService {
     private void attach(List<MediaController> controllers) {
         if (!connected) return;
         MediaController chosen = null;
+        MediaController chosenYoutube = null;
         if (controllers == null) controllers = Collections.emptyList();
         for (MediaController controller : controllers) {
-            if (STREMIO.equals(controller.getPackageName())) {
-                chosen = controller;
-                break;
-            }
+            if (STREMIO.equals(controller.getPackageName())) chosen = controller;
+            if (YOUTUBE.equals(controller.getPackageName())) chosenYoutube = controller;
         }
         if (chosen != stremioController) {
             if (stremioController != null) {
@@ -83,16 +90,34 @@ public final class HybridSessionListener extends NotificationListenerService {
                 catch (RuntimeException ignored) { stremioController = null; }
             }
         }
+        if (chosenYoutube != youtubeController) {
+            if (youtubeController != null) {
+                try { youtubeController.unregisterCallback(youtubeCallback); }
+                catch (RuntimeException ignored) { }
+            }
+            youtubeController = chosenYoutube;
+            if (chosenYoutube != null) {
+                try { chosenYoutube.registerCallback(youtubeCallback, main); }
+                catch (RuntimeException ignored) { youtubeController = null; }
+            }
+        }
         saveCurrent();
     }
 
     private void saveCurrent() {
-        if (!connected || stremioController == null) return;
-        try {
-            // The controller was filtered by its package before being attached.
-            StremioSnapshotStore.capture(this, stremioController.getMetadata(),
-                    stremioController.getPlaybackState());
-        } catch (RuntimeException ignored) { }
+        if (!connected) return;
+        if (stremioController != null) {
+            try {
+                StremioSnapshotStore.capture(this, stremioController.getMetadata(),
+                        stremioController.getPlaybackState());
+            } catch (RuntimeException ignored) { }
+        }
+        if (youtubeController != null) {
+            try {
+                YoutubeSnapshotStore.capture(this, youtubeController.getMetadata(),
+                        youtubeController.getPlaybackState());
+            } catch (RuntimeException ignored) { }
+        }
     }
 
     private void detach() {
@@ -107,6 +132,11 @@ public final class HybridSessionListener extends NotificationListenerService {
             catch (RuntimeException ignored) { }
         }
         stremioController = null;
+        if (youtubeController != null) {
+            try { youtubeController.unregisterCallback(youtubeCallback); }
+            catch (RuntimeException ignored) { }
+        }
+        youtubeController = null;
         sessions = null;
     }
 
@@ -119,6 +149,7 @@ public final class HybridSessionListener extends NotificationListenerService {
         ComponentName component = new ComponentName(this, HybridSessionListener.class);
         if (nm == null || !nm.isNotificationListenerAccessGranted(component)) {
             StremioSnapshotStore.clear(this);
+            YoutubeSnapshotStore.clear(this);
         }
         super.onListenerDisconnected();
     }
