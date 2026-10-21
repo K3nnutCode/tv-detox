@@ -839,6 +839,10 @@ public final class HybridActivity extends Activity {
 
     private void applyPlaybackCardSize(boolean hasPlayback) {
         if (hero == null) return;
+        // Dock OK launches the app. When no session exists, a second faux
+        // button has no value and was clipped by the compact TCL card.
+        // Keep the playback action chip only alongside real media details.
+        heroAction.setVisibility(hasPlayback ? View.VISIBLE : View.GONE);
         // Empty media state is deliberately small so family photos are primary.
         // Real media retains the wider layout with its bounded 16:9 artwork.
         hero.setLayoutParams(pos(px(74), px(hasPlayback ? 275 : 311),
