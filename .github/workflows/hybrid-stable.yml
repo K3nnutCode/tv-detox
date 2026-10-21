@@ -155,9 +155,10 @@ jobs:
           "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify "$APK"
           "$ANDROID_HOME/build-tools/34.0.0/aapt" dump badging "$APK" |
             grep -F "package: name='com.ansub.tvhome.hybrid.youtube.preview'"
-          "$ANDROID_HOME/build-tools/34.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml |
-            grep -q 'android.intent.category.LEANBACK_LAUNCHER'
-          echo 'PASS: isolated preview cannot overwrite stable package'
+          "$ANDROID_HOME/build-tools/34.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml > /tmp/hybrid-youtube-preview-manifest.txt
+          grep -q 'android.intent.category.LEANBACK_LAUNCHER' /tmp/hybrid-youtube-preview-manifest.txt
+          ! grep -q 'android.intent.category.HOME' /tmp/hybrid-youtube-preview-manifest.txt
+          echo 'PASS: preview is separately installed and never competes for HOME'
       - uses: actions/upload-artifact@v4
         with:
           name: hybrid-tv-v1.0.1-youtube-preview-apk
