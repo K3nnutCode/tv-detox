@@ -82,6 +82,7 @@ public final class HybridActivity extends Activity {
     private final LinearLayout[] prayerTiles = new LinearLayout[5];
     private ProgressBar playbackProgress;
     private FrameLayout hero;
+    private boolean featuredPlaybackAvailable;
     private final Runnable greetingTick = new Runnable() {
         @Override public void run() {
             if (!active) return;
@@ -120,8 +121,8 @@ public final class HybridActivity extends Activity {
 
         View shade = new View(this);
         shade.setBackground(new GradientDrawable(GradientDrawable.Orientation.BOTTOM_TOP,
-                new int[]{0xA90C1320, 0x390D1723, 0x00000000}));
-        FrameLayout.LayoutParams scrim = new FrameLayout.LayoutParams(-1, px(730), Gravity.BOTTOM);
+                new int[]{0x890C1320, 0x1F0D1723, 0x00000000}));
+        FrameLayout.LayoutParams scrim = new FrameLayout.LayoutParams(-1, px(610), Gravity.BOTTOM);
         stage.addView(shade, scrim);
 
 
@@ -173,7 +174,7 @@ public final class HybridActivity extends Activity {
         TextView prayerTitle = text("☪  WAKTU SOLAT · BRUNEI–MUARA", 20, Color.WHITE, true);
         prayerTitle.setSingleLine(true);
         prayerHeading.addView(prayerTitle, new LinearLayout.LayoutParams(0, -2, 1f));
-        prayerNextView = text("Checking timetable", 16, 0xFFF2D9A1, true);
+        prayerNextView = text("Checking timetable", 18, 0xFFF2D9A1, true);
         prayerNextView.setSingleLine(true);
         prayerNextView.setGravity(Gravity.RIGHT);
         prayerHeading.addView(prayerNextView, new LinearLayout.LayoutParams(0, -2, 1f));
@@ -190,7 +191,7 @@ public final class HybridActivity extends Activity {
             cell.setOrientation(LinearLayout.VERTICAL);
             cell.setGravity(Gravity.CENTER);
             cell.setPadding(px(3), px(1), px(3), px(1));
-            TextView name = text(PrayerSchedule2026.PRAYERS[i], 17, 0xFFE5EBF5, false);
+            TextView name = text(PrayerSchedule2026.PRAYERS[i], 18, 0xFFE5EBF5, false);
             name.setGravity(Gravity.CENTER);
             cell.addView(name);
             TextView value = text("--:--", 24, Color.WHITE, true);
@@ -208,10 +209,10 @@ public final class HybridActivity extends Activity {
 
         LinearLayout prayerFooter = new LinearLayout(this);
         prayerFooter.setOrientation(LinearLayout.HORIZONTAL);
-        prayerPeriodView = text("", 14, 0xFFF0D9A9, true);
+        prayerPeriodView = text("", 16, 0xFFF0D9A9, true);
         prayerPeriodView.setSingleLine(true);
         prayerFooter.addView(prayerPeriodView, new LinearLayout.LayoutParams(0, -2, 1f));
-        prayerSourceView = text("2026 PDI · Offline · Asia/Brunei", 13, 0xFFD2DAE6, false);
+        prayerSourceView = text("2026 PDI · Offline · Asia/Brunei", 15, 0xFFD2DAE6, false);
         prayerSourceView.setGravity(Gravity.RIGHT);
         prayerSourceView.setSingleLine(true);
         prayerFooter.addView(prayerSourceView, new LinearLayout.LayoutParams(0, -2, 1f));
@@ -323,12 +324,12 @@ public final class HybridActivity extends Activity {
         dock.setGravity(Gravity.CENTER);
         dock.setClipChildren(false);
         dock.setClipToPadding(false);
-        dock.setPadding(px(18), px(15), px(18), px(15));
-        dock.setBackground(round(0xB5293542, 33, 0x56FFFFFF));
-        FrameLayout.LayoutParams dockParams = new FrameLayout.LayoutParams(-1, px(165), Gravity.BOTTOM);
-        dockParams.leftMargin = px(164);
-        dockParams.rightMargin = px(164);
-        dockParams.bottomMargin = px(51);
+        dock.setPadding(px(18), px(14), px(18), px(14));
+        dock.setBackground(round(0x94303B48, 32, 0x4CFFFFFF));
+        FrameLayout.LayoutParams dockParams = new FrameLayout.LayoutParams(-1, px(148), Gravity.BOTTOM);
+        dockParams.leftMargin = px(206);
+        dockParams.rightMargin = px(206);
+        dockParams.bottomMargin = px(58);
         stage.addView(dock, dockParams);
         buildDock(dock);
 
@@ -511,7 +512,7 @@ public final class HybridActivity extends Activity {
             artwork.setImageDrawable(banner);
             artwork.setScaleType(ImageView.ScaleType.CENTER_CROP);
             artwork.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-            tile.setPadding(px(2), px(2), px(2), px(2));
+            tile.setPadding(px(7), px(6), px(7), px(6));
             tile.addView(artwork, new LinearLayout.LayoutParams(-1, -1));
         } else if ("inputs".equals(pkg) || "settings".equals(pkg)) {
             // These are system controls, not app logos: simple TV-style glyphs.
@@ -584,9 +585,9 @@ public final class HybridActivity extends Activity {
             }
         });
         dockTiles.add(tile);
-        LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(0, px(129), 1f);
-        tp.leftMargin = px(8);
-        tp.rightMargin = px(8);
+        LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(0, px(113), 1f);
+        tp.leftMargin = px(7);
+        tp.rightMargin = px(7);
         dock.addView(tile, tp);
     }
 
@@ -821,23 +822,27 @@ public final class HybridActivity extends Activity {
         heroArtwork.setVisibility(View.GONE);
         heroArtwork.setImageDrawable(null);
         hero.setVisibility(View.VISIBLE);
+        featuredPlaybackAvailable = false;
         playbackProgress.setVisibility(View.GONE);
         heroEyebrow.setText(STREMIO.equals(pkg) ? "CONTINUE WATCHING  ·  STREMIO"
                 : YOUTUBE.equals(pkg) ? "YOUTUBE  ·  FEATURED"
                 : "YOUR APPS  ·  " + label.toUpperCase(Locale.US));
-        heroAction.setText("▶  Press OK to open " + label);
+        heroAction.setText("▶  Open " + label);
         heading.setText(label);
         if (STREMIO.equals(pkg)) {
             showStremio();
         } else if (YOUTUBE.equals(pkg)) {
             showYoutube();
-        } else if ("inputs".equals(pkg) || "settings".equals(pkg)) {
-            details.setText("TV controls");
-            footnote.setText("Press OK to open " + label);
-        } else {
-            details.setText("Featured app");
-            footnote.setText("Press OK to open " + label + " · No viewing data accessed");
         }
+        applyPlaybackCardSize(featuredPlaybackAvailable);
+    }
+
+    private void applyPlaybackCardSize(boolean hasPlayback) {
+        if (hero == null) return;
+        // Empty media state is deliberately small so family photos are primary.
+        // Real media retains the wider layout with its bounded 16:9 artwork.
+        hero.setLayoutParams(pos(px(74), px(hasPlayback ? 275 : 311),
+                px(hasPlayback ? 1065 : 720), px(hasPlayback ? 412 : 278)));
     }
 
     private void showYoutube() {
@@ -876,6 +881,7 @@ public final class HybridActivity extends Activity {
             footnote.setText("Play a video in YouTube, then press Home");
             return;
         }
+        featuredPlaybackAvailable = true;
         heroEyebrow.setText(live
                 ? "YOUTUBE  ·  MEDIA SESSION"
                 : "LAST SEEN  ·  YOUTUBE  ·  SAVED");
@@ -939,6 +945,7 @@ public final class HybridActivity extends Activity {
                 int progress = (int) Math.max(0L, Math.min(1000L, watched * 1000L / total));
                 playbackProgress.setProgress(progress);
                 playbackProgress.setVisibility(View.VISIBLE);
+                featuredPlaybackAvailable = true;
                 heroEyebrow.setText("CONTINUE WATCHING  ·  STREMIO");
                 footnote.setText(fmt(watched) + " watched  ·  " +
                         fmt(total - watched) + " left  ·  " +
@@ -970,6 +977,7 @@ public final class HybridActivity extends Activity {
             footnote.setText("Play a title in Stremio, then return here");
             return;
         }
+        featuredPlaybackAvailable = true;
         heroEyebrow.setText("LAST SEEN  ·  STREMIO  ·  SAVED");
         heading.setText(saved.title);
         details.setText(saved.artist.isEmpty() ? "Previously watched on this TV"
