@@ -25,6 +25,8 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
+import android.service.notification.NotificationListenerService;
 import android.provider.Settings;
 import android.text.TextUtils;
 import android.util.TypedValue;
@@ -92,6 +94,7 @@ public final class HybridActivity extends Activity {
     private FrameLayout stageView;
     private HybridWeatherWidget weather;
     private boolean active;
+    private static long lastListenerRebindElapsed;
     private int generation;
     private int index = -1;
     private float scale;
@@ -766,9 +769,32 @@ public final class HybridActivity extends Activity {
         return i;
     }
 
+    /**
+     * Some TCL firmware retains the permission grant but does not bind a
+     * secondary listener after reboot. Request a reconnect only after the
+     * owner has enabled access and only if our service is actually offline.
+     * This changes neither the default Home app nor other listener grants.
+     */
+    private void requestMediaListenerRebindIfNeeded() {
+        if (HybridSessionListener.isLiveConnection()) return;
+        NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        ComponentName component = new ComponentName(this, HybridSessionListener.class);
+        if (nm == null || !nm.isNotificationListenerAccessGranted(component)) return;
+        long now = SystemClock.elapsedRealtime();
+        if (lastListenerRebindElapsed != 0L
+                && now - lastListenerRebindElapsed < 30000L) return;
+        lastListenerRebindElapsed = now;
+        try {
+            NotificationListenerService.requestRebind(component);
+        } catch (RuntimeException ignored) {
+            // Best effort; Android retains sole control over binding.
+        }
+    }
+
     @Override protected void onResume() {
         super.onResume();
         active = true;
+        requestMediaListenerRebindIfNeeded();
         weather.start();
         updateGreeting();
         ui.removeCallbacks(greetingTick);
