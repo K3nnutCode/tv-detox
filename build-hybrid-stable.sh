@@ -6,7 +6,7 @@ set -eu
 umask 077
 cd "$(dirname "$0")"
 MODE="${MODE:-smoke}"
-case "$MODE" in smoke|release) ;; *) echo "Unsupported MODE" >&2; exit 2;; esac
+case "$MODE" in smoke|release|preview) ;; *) echo "Unsupported MODE" >&2; exit 2;; esac
 SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
 [ -n "$SDK" ] || { echo "Set ANDROID_HOME" >&2; exit 1; }
 BT="$SDK/build-tools/34.0.0"
@@ -22,8 +22,10 @@ mkdir -p "$OUT/classes" "$OUT/dex" "$OUT/gen/com/ansub/tvhome"
   echo '}; }'
 } > "$OUT/gen/com/ansub/tvhome/Apps.java"
 
+MANIFEST=AndroidManifest-hybrid-stable.xml
+if [ "$MODE" = preview ]; then MANIFEST=AndroidManifest-hybrid-youtube-preview.xml; fi
 "$BT/aapt2" link -o "$OUT/base.apk" -I "$JAR" \
-  --manifest AndroidManifest-hybrid-stable.xml --min-sdk-version 26 --target-sdk-version 30
+  --manifest "$MANIFEST" --min-sdk-version 26 --target-sdk-version 30
 # shellcheck disable=SC2046
 javac -nowarn -Xlint:-options -encoding UTF-8 -source 1.8 -target 1.8 \
   -bootclasspath "$JAR:$BT/core-lambda-stubs.jar" -d "$OUT/classes" \
@@ -63,9 +65,11 @@ else
     -storepass smoke-test-only -keypass smoke-test-only \
     -alias ci-smoke -keyalg RSA -keysize 2048 -validity 2 \
     -dname 'CN=CI smoke test ONLY' >/dev/null 2>&1
+  TEST_APK="$OUT/hybrid-tv-v1-smoke-NOT-RELEASE.apk"
+  if [ "$MODE" = preview ]; then TEST_APK="$OUT/hybrid-tv-v1.0.1-youtube-preview.apk"; fi
   "$BT/apksigner" sign --ks "$KEY_TMP" --ks-key-alias ci-smoke \
     --ks-pass pass:smoke-test-only --key-pass pass:smoke-test-only \
-    --out "$OUT/hybrid-tv-v1-smoke-NOT-RELEASE.apk" "$OUT/aligned.apk"
-  "$BT/apksigner" verify "$OUT/hybrid-tv-v1-smoke-NOT-RELEASE.apk"
-  echo "Built test-only emulator APK — NOT an updatable stable release"
+    --out "$TEST_APK" "$OUT/aligned.apk"
+  "$BT/apksigner" verify "$TEST_APK"
+  echo "Built test-only $MODE APK — NOT a stable release"
 fi

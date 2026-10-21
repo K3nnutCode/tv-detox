@@ -2,6 +2,7 @@ package com.ansub.tvhome;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.app.NotificationManager;
 import android.content.ComponentName;
 import android.content.Intent;
@@ -11,7 +12,6 @@ import android.content.pm.ResolveInfo;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
-import android.graphics.PorterDuff;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.InsetDrawable;
@@ -26,17 +26,23 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
+import android.service.notification.NotificationListenerService;
 import android.provider.Settings;
 import android.text.TextUtils;
 import android.util.TypedValue;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.KeyEvent;
+import android.view.InputDevice;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
+import android.widget.ScrollView;
+import android.widget.Toast;
 import android.widget.TextClock;
 import android.widget.TextView;
 
@@ -69,7 +75,7 @@ public final class HybridActivity extends Activity {
     private final ArrayList<View> dockTiles = new ArrayList<>();
     private final ArrayList<File> photos = new ArrayList<>();
     private TvWallpaperView photo;
-    private ImageView cinematic, heroArtwork;
+    private ImageView heroArtwork;
     private TextView heading, details, footnote, greetingView, heroEyebrow, heroAction;
     private TextView prayerNextView, prayerPeriodView, prayerSourceView;
     private final TextView[] prayerTimeViews = new TextView[5];
@@ -93,6 +99,7 @@ public final class HybridActivity extends Activity {
     private FrameLayout stageView;
     private HybridWeatherWidget weather;
     private boolean active;
+    private static long lastListenerRebindElapsed;
     private int generation;
     private int index = -1;
     private float scale;
@@ -110,11 +117,6 @@ public final class HybridActivity extends Activity {
         photo = new TvWallpaperView(this);
         stage.addView(photo, new FrameLayout.LayoutParams(-1,-1));
 
-        cinematic = new ImageView(this);
-        cinematic.setScaleType(ImageView.ScaleType.CENTER_CROP);
-        cinematic.setColorFilter(0x90000000, PorterDuff.Mode.SRC_ATOP);
-        cinematic.setVisibility(View.GONE);
-        stage.addView(cinematic, new FrameLayout.LayoutParams(-1,-1));
 
         View shade = new View(this);
         shade.setBackground(new GradientDrawable(GradientDrawable.Orientation.BOTTOM_TOP,
@@ -223,6 +225,9 @@ public final class HybridActivity extends Activity {
         hero = new FrameLayout(this);
         hero.setBackground(round(0xD1141C2B, 30, 0x62FFFFFF));
         hero.setClipToOutline(true);
+        // Media art belongs exclusively inside the selected-app hero card.
+        // The underlying TvWallpaperView keeps cycling personal photos and is
+        // never replaced by Stremio or YouTube thumbnails.
         heroArtwork = new ImageView(this);
         heroArtwork.setScaleType(ImageView.ScaleType.CENTER_CROP);
         heroArtwork.setVisibility(View.GONE);
@@ -330,8 +335,39 @@ public final class HybridActivity extends Activity {
      * Never consume BACK, HOME, volume, or other system keys.
      */
     @Override public boolean dispatchKeyEvent(KeyEvent event) {
-        if (dockTiles.isEmpty()) return super.dispatchKeyEvent(event);
         final int code = event.getKeyCode();
+        final InputDevice source = event.getDevice();
+        final String remoteName = source == null ? "" : source.getName();
+        final boolean tclRemote = "BT_RC813_MA".equals(remoteName);
+
+        // TCL BT_RC813_MA emits Linux KEY_FORWARDMAIL (233), mapped by
+        // Generic.kl to vendor TCL_SET. This is a *scan code*, NOT Android
+        // KEYCODE_233. Handle only this remote and scan code, and only when
+        // the firmware actually delivers the event to the application.
+        if (tclRemote && event.getScanCode() == 233) {
+            if (event.getAction() == KeyEvent.ACTION_DOWN) {
+                Log.i("HybridTclKeys", "TCL_SET delivered: androidKeyCode=" + code
+                        + " scanCode=" + event.getScanCode());
+                if (event.getRepeatCount() == 0) openTvSettings();
+            }
+            return true;
+        }
+        // Diagnostics for other non-navigation TCL remote keys, in case
+        // OEM firmware changes the scan-code mapping on this model.
+        if (tclRemote && event.getAction() == KeyEvent.ACTION_DOWN
+                && code != KeyEvent.KEYCODE_DPAD_UP
+                && code != KeyEvent.KEYCODE_DPAD_DOWN
+                && code != KeyEvent.KEYCODE_DPAD_LEFT
+                && code != KeyEvent.KEYCODE_DPAD_RIGHT
+                && code != KeyEvent.KEYCODE_DPAD_CENTER
+                && code != KeyEvent.KEYCODE_ENTER
+                && code != KeyEvent.KEYCODE_VOLUME_UP
+                && code != KeyEvent.KEYCODE_VOLUME_DOWN) {
+            Log.i("HybridTclKeys", "Remote key delivered: androidKeyCode=" + code
+                    + " scanCode=" + event.getScanCode()
+                    + " device=" + remoteName);
+        }
+        if (dockTiles.isEmpty()) return super.dispatchKeyEvent(event);
         final boolean direction = code == KeyEvent.KEYCODE_DPAD_LEFT
                 || code == KeyEvent.KEYCODE_DPAD_RIGHT
                 || code == KeyEvent.KEYCODE_DPAD_UP
@@ -339,6 +375,16 @@ public final class HybridActivity extends Activity {
         final boolean select = code == KeyEvent.KEYCODE_DPAD_CENTER
                 || code == KeyEvent.KEYCODE_ENTER
                 || code == KeyEvent.KEYCODE_NUMPAD_ENTER;
+        // The vendor may intercept hardware Settings/Input keys before they
+        // reach the Home app. This handles them whenever Android delivers them.
+        if (code == KeyEvent.KEYCODE_SETTINGS || code == KeyEvent.KEYCODE_MENU
+                || code == KeyEvent.KEYCODE_TV_INPUT) {
+            if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0) {
+                if (code == KeyEvent.KEYCODE_TV_INPUT) showTvInputSelector();
+                else openTvSettings();
+            }
+            return true;
+        }
         if (!direction && !select) return super.dispatchKeyEvent(event);
 
         if (event.getAction() == KeyEvent.ACTION_DOWN) {
@@ -371,10 +417,6 @@ public final class HybridActivity extends Activity {
     private void showIdle() {
         if (hero != null) hero.setVisibility(View.GONE);
         if (playbackProgress != null) playbackProgress.setVisibility(View.GONE);
-        if (cinematic != null) {
-            cinematic.setVisibility(View.GONE);
-            cinematic.setImageDrawable(null);
-        }
         if (heroArtwork != null) {
             heroArtwork.setVisibility(View.GONE);
             heroArtwork.setImageDrawable(null);
@@ -418,9 +460,8 @@ public final class HybridActivity extends Activity {
             addDockTile(dock, pkg, label, banner, icon,
                     () -> { intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); startActivity(intent); });
         }
-        addDockTile(dock, "inputs", "Inputs", null, null, this::openFirstTvInput);
-        addDockTile(dock, "settings", "Settings", null, null,
-                () -> startActivity(new Intent(Settings.ACTION_SETTINGS)));
+        addDockTile(dock, "inputs", "Inputs", null, null, this::showTvInputSelector);
+        addDockTile(dock, "settings", "Settings", null, null, this::openTvSettings);
     }
 
     /** Original Android TV app banner, fitted to the unchanged TV dock tile. */
@@ -565,28 +606,190 @@ public final class HybridActivity extends Activity {
         return background;
     }
 
-    private void openFirstTvInput() {
-        try {
-            TvInputManager manager = (TvInputManager) getSystemService(TV_INPUT_SERVICE);
-            if (manager != null) {
-                for (TvInputInfo input : manager.getTvInputList()) {
-                    if (input.isPassthroughInput()) {
-                        Intent view = new Intent(Intent.ACTION_VIEW,
-                                TvContract.buildChannelUriForPassthroughInput(input.getId()));
-                        view.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                        startActivity(view);
-                        return;
-                    }
-                }
+    private static final class SourceEntry {
+        final TvInputInfo info;
+        final String label;
+        final int state;
+        SourceEntry(TvInputInfo info, String label, int state) {
+            this.info = info;
+            this.label = label;
+            this.state = state;
+        }
+    }
+
+    private String sourceLabel(TvInputInfo input) {
+        CharSequence custom = null;
+        CharSequence systemLabel = null;
+        try { custom = input.loadCustomLabel(this); }
+        catch (RuntimeException ignored) { }
+        try { systemLabel = input.loadLabel(this); }
+        catch (RuntimeException ignored) { }
+        String label = custom != null && custom.length() > 0 ? custom.toString()
+                : systemLabel != null ? systemLabel.toString() : "";
+        if (label.isEmpty()) {
+            label = input.getType() == TvInputInfo.TYPE_HDMI ? "HDMI"
+                    : input.getType() == TvInputInfo.TYPE_COMPOSITE ? "AV"
+                    : "TV source";
+        }
+        return label;
+    }
+
+    private int sourceSortKey(SourceEntry item) {
+        if (item.info.getType() == TvInputInfo.TYPE_HDMI) {
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile(
+                    "(?i)HDMI\\s*[-#:]?\\s*(\\d+)").matcher(item.label);
+            if (m.find()) {
+                try { return Integer.parseInt(m.group(1)); }
+                catch (NumberFormatException ignored) { }
             }
-        } catch (Exception ignored) { }
-        // Some TCL firmware restricts TV input intents to its own system UI.
-        startActivity(new Intent(Settings.ACTION_SETTINGS));
+            return 50;
+        }
+        return item.info.getType() == TvInputInfo.TYPE_COMPOSITE ? 100 : 200;
+    }
+
+    private String sourceStatus(int state) {
+        if (state == TvInputManager.INPUT_STATE_CONNECTED) return "Reported connected";
+        if (state == TvInputManager.INPUT_STATE_CONNECTED_STANDBY) return "Standby";
+        if (state == TvInputManager.INPUT_STATE_DISCONNECTED) return "Reported disconnected";
+        return "Status unknown";
+    }
+
+    private int sourceStatusColor(int state) {
+        if (state == TvInputManager.INPUT_STATE_CONNECTED) return 0xFF55D58A;
+        if (state == TvInputManager.INPUT_STATE_CONNECTED_STANDBY) return 0xFFFFCA70;
+        return 0xFF9DA6B8; // Grey for disconnected OR unknown, not false red.
+    }
+
+    /**
+     * Show actual TvInputInfo records, never guessed HDMI ids. TCL exposes
+     * four physical HDMI ports in dumpsys, but a cable status of 0 means
+     * UNKNOWN rather than physically unplugged. Public TvInputManager state
+     * may differ, so labels explicitly say "Reported".
+     */
+    private void showTvInputSelector() {
+        TvInputManager manager = (TvInputManager) getSystemService(TV_INPUT_SERVICE);
+        ArrayList<SourceEntry> sources = new ArrayList<>();
+        if (manager != null) {
+            try {
+                for (TvInputInfo input : manager.getTvInputList()) {
+                    if (!input.isPassthroughInput()) continue;
+                    String label = sourceLabel(input);
+                    // Hide tuner/app inputs; show hardware HDMI/AV and inputs
+                    // which TCL itself labels HDMI/AV even if type is generic.
+                    String upper = label.toUpperCase(Locale.US);
+                    boolean physical = input.getType() == TvInputInfo.TYPE_HDMI
+                            || input.getType() == TvInputInfo.TYPE_COMPOSITE
+                            || input.getType() == TvInputInfo.TYPE_COMPONENT
+                            || upper.startsWith("HDMI") || upper.equals("AV");
+                    if (!physical) continue;
+                    int state;
+                    try { state = manager.getInputState(input.getId()); }
+                    catch (RuntimeException ignored) { state = -1; }
+                    sources.add(new SourceEntry(input, label, state));
+                }
+            } catch (RuntimeException ignored) {
+                // Some OEMs do not publish TV input records to third parties.
+            }
+        }
+        Collections.sort(sources, (a,b) -> {
+            int sort = Integer.compare(sourceSortKey(a), sourceSortKey(b));
+            return sort != 0 ? sort : a.label.compareToIgnoreCase(b.label);
+        });
+
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(px(24), px(8), px(24), px(6));
+        TextView hint = text("Green: reported connected  ·  Amber: standby  ·  Grey: disconnected/unknown",
+                21, 0xFFD7DFEC, false);
+        hint.setPadding(0, px(6), 0, px(20));
+        content.addView(hint);
+
+        final View[] first = new View[1];
+        final AlertDialog[] holder = new AlertDialog[1];
+        for (SourceEntry source : sources) {
+            LinearLayout row = new LinearLayout(this);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            row.setPadding(px(18), px(13), px(18), px(13));
+            row.setFocusable(true);
+            row.setClickable(true);
+            row.setBackground(round(0xEC29354C, 16, 0x55FFFFFF));
+            if (first[0] == null) first[0] = row;
+            TextView title = text(source.label, 28, Color.WHITE, true);
+            title.setSingleLine(true);
+            row.addView(title, new LinearLayout.LayoutParams(0,-2,1f));
+            TextView status = text("●  " + sourceStatus(source.state), 20,
+                    sourceStatusColor(source.state), true);
+            status.setGravity(Gravity.RIGHT);
+            row.addView(status, new LinearLayout.LayoutParams(-2,-2));
+            row.setOnFocusChangeListener((v,focused) -> row.setBackground(
+                    round(focused ? 0xFF394F79 : 0xEC29354C,16,
+                            focused ? 0xFF95BDFB : 0x55FFFFFF)));
+            row.setOnClickListener(v -> switchTvInput(source, holder[0]));
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1,px(84));
+            lp.bottomMargin=px(8);
+            content.addView(row,lp);
+        }
+        if (sources.isEmpty()) {
+            TextView info = text("This TV has not exposed selectable HDMI/AV inputs to Hybrid TV."
+                    + " Use TCL's built-in Source menu; no port numbers will be guessed.",
+                    25, Color.WHITE, false);
+            content.addView(info);
+        }
+        ScrollView scroll = new ScrollView(this);
+        scroll.setFillViewport(false);
+        scroll.addView(content);
+        AlertDialog dialog = new AlertDialog.Builder(this,
+                android.R.style.Theme_Material_Dialog_Alert)
+                .setTitle("Select TV source")
+                .setView(scroll)
+                .setNegativeButton("Back", (d,which) -> d.dismiss())
+                .create();
+        holder[0] = dialog;
+        dialog.setOnShowListener(d -> {
+            if (first[0] != null) first[0].requestFocus();
+        });
+        dialog.show();
+    }
+
+    private void switchTvInput(SourceEntry selected, AlertDialog dialog) {
+        // A pass-through URI targets this exact published input, not the first
+        // available entry (which was AV on the user's TCL).
+        Intent view = new Intent(Intent.ACTION_VIEW,
+                TvContract.buildChannelUriForPassthroughInput(selected.info.getId()));
+        view.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        try {
+            // startActivity can resolve an intent even when Android 11 package
+            // visibility prevents resolveActivity() from seeing its handler.
+            startActivity(view);
+            if (dialog != null) dialog.dismiss();
+        } catch (RuntimeException e) {
+            Toast.makeText(this, "TCL blocked this source; try the TV's Input key",
+                    Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void openTvSettings() {
+        // ADB identified the exact Android TV Settings activity on this TCL.
+        // Target it directly; if this firmware blocks exported activity launch,
+        // fall back to the ordinary Android Settings intent.
+        Intent explicit = new Intent(Intent.ACTION_MAIN);
+        explicit.setClassName("com.android.tv.settings", "com.android.tv.settings.MainSettings");
+        explicit.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        try {
+            startActivity(explicit);
+            return;
+        } catch (RuntimeException ignored) { }
+        Intent ordinary = new Intent(Settings.ACTION_SETTINGS);
+        ordinary.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        try {
+            startActivity(ordinary);
+        } catch (RuntimeException e) {
+            Toast.makeText(this,"TV Settings could not be opened", Toast.LENGTH_LONG).show();
+        }
     }
 
     private void showSelection(String pkg, String label) {
-        cinematic.setVisibility(View.GONE);
-        cinematic.setImageDrawable(null);
         heroArtwork.setVisibility(View.GONE);
         heroArtwork.setImageDrawable(null);
         hero.setVisibility(View.VISIBLE);
@@ -599,14 +802,76 @@ public final class HybridActivity extends Activity {
         if (STREMIO.equals(pkg)) {
             showStremio();
         } else if (YOUTUBE.equals(pkg)) {
-            details.setText("Continue Watching");
-            footnote.setText("Playback history preview pending YouTube compatibility test");
+            showYoutube();
         } else if ("inputs".equals(pkg) || "settings".equals(pkg)) {
             details.setText("TV controls");
             footnote.setText("Press OK to open " + label);
         } else {
             details.setText("Featured app");
             footnote.setText("Press OK to open " + label + " · No viewing data accessed");
+        }
+    }
+
+    private void showYoutube() {
+        NotificationManager notifications = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        ComponentName listener = new ComponentName(this, HybridSessionListener.class);
+        if (notifications == null || !notifications.isNotificationListenerAccessGranted(listener)) {
+            YoutubeSnapshotStore.clear(this);
+            heading.setText("YouTube");
+            details.setText("Playback preview unavailable");
+            footnote.setText("Enable Hybrid TV media-session notification access");
+            return;
+        }
+        YoutubeSnapshotStore.Snapshot snapshot = null;
+        boolean live = false;
+        try {
+            MediaSessionManager manager = (MediaSessionManager) getSystemService(MEDIA_SESSION_SERVICE);
+            if (manager != null) for (MediaController controller : manager.getActiveSessions(listener)) {
+                if (!YOUTUBE.equals(controller.getPackageName())) continue;
+                MediaMetadata metadata = controller.getMetadata();
+                PlaybackState state = controller.getPlaybackState();
+                snapshot = YoutubeSnapshotStore.current(metadata, state);
+                if (snapshot == null) continue;
+                // Listener saves in the background. Keep this fallback in case
+                // TCL does not deliver a callback before the user presses HOME.
+                YoutubeSnapshotStore.capture(this, metadata, state);
+                live = true;
+                break;
+            }
+        } catch (RuntimeException ignored) {
+            // No crash if YouTube or the OEM media-session service is unavailable.
+        }
+        if (snapshot == null) snapshot = YoutubeSnapshotStore.read(this);
+        if (snapshot == null) {
+            heading.setText("YouTube");
+            details.setText("Recent playback not available");
+            footnote.setText("Play a video in YouTube, then press Home");
+            return;
+        }
+        heroEyebrow.setText(live
+                ? "YOUTUBE  ·  MEDIA SESSION"
+                : "LAST SEEN  ·  YOUTUBE  ·  SAVED");
+        heading.setText(snapshot.title);
+        details.setText(snapshot.subtitle.isEmpty() ? "YouTube video" : snapshot.subtitle);
+        if (snapshot.duration > 0 && snapshot.position >= 0) {
+            long watched = Math.min(snapshot.position, snapshot.duration);
+            playbackProgress.setProgress((int) Math.max(0L,
+                    Math.min(1000L, watched * 1000L / snapshot.duration)));
+            playbackProgress.setVisibility(View.VISIBLE);
+            footnote.setText(fmt(watched) + (live ? " elapsed" : " saved") + "  ·  "
+                    + fmt(snapshot.duration - watched) + " left");
+        } else if (snapshot.position >= 0) {
+            // YouTube TV may provide a title and position without a duration.
+            // A percentage/progress bar would be fabricated in that case.
+            footnote.setText(fmt(snapshot.position) + (live ? " elapsed" : " saved")
+                    + "  ·  Total duration unavailable");
+        } else {
+            footnote.setText(live ? "Playback position unavailable"
+                    : "Saved YouTube playback · Position unavailable");
+        }
+        if (snapshot.artwork != null && !snapshot.artwork.isRecycled()) {
+            heroArtwork.setImageBitmap(snapshot.artwork);
+            heroArtwork.setVisibility(View.VISIBLE);
         }
     }
 
@@ -656,8 +921,6 @@ public final class HybridActivity extends Activity {
                 if (bmp != null) {
                     heroArtwork.setImageBitmap(bmp);
                     heroArtwork.setVisibility(View.VISIBLE);
-                    cinematic.setImageBitmap(bmp);
-                    cinematic.setVisibility(View.VISIBLE);
                 }
                 // Also snapshot from foreground view (background service is
                 // best-effort on vendor TV firmware).
@@ -696,8 +959,6 @@ public final class HybridActivity extends Activity {
         if (saved.artwork != null) {
             heroArtwork.setImageBitmap(saved.artwork);
             heroArtwork.setVisibility(View.VISIBLE);
-            cinematic.setImageBitmap(saved.artwork);
-            cinematic.setVisibility(View.VISIBLE);
         }
     }
 
@@ -717,9 +978,32 @@ public final class HybridActivity extends Activity {
         return i;
     }
 
+    /**
+     * Some TCL firmware retains the permission grant but does not bind a
+     * secondary listener after reboot. Request a reconnect only after the
+     * owner has enabled access and only if our service is actually offline.
+     * This changes neither the default Home app nor other listener grants.
+     */
+    private void requestMediaListenerRebindIfNeeded() {
+        if (HybridSessionListener.isLiveConnection()) return;
+        NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        ComponentName component = new ComponentName(this, HybridSessionListener.class);
+        if (nm == null || !nm.isNotificationListenerAccessGranted(component)) return;
+        long now = SystemClock.elapsedRealtime();
+        if (lastListenerRebindElapsed != 0L
+                && now - lastListenerRebindElapsed < 30000L) return;
+        lastListenerRebindElapsed = now;
+        try {
+            NotificationListenerService.requestRebind(component);
+        } catch (RuntimeException ignored) {
+            // Best effort; Android retains sole control over binding.
+        }
+    }
+
     @Override protected void onResume() {
         super.onResume();
         active = true;
+        requestMediaListenerRebindIfNeeded();
         weather.start();
         updateGreeting();
         ui.removeCallbacks(greetingTick);
@@ -730,6 +1014,7 @@ public final class HybridActivity extends Activity {
         startPhotos();
         View focus = getCurrentFocus();
         if (focus != null && STREMIO.equals(focus.getTag())) showSelection(STREMIO, "Stremio");
+        else if (focus != null && YOUTUBE.equals(focus.getTag())) showSelection(YOUTUBE, "YouTube");
     }
 
     @Override protected void onPause() {

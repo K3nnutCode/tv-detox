@@ -6,6 +6,7 @@ on:
       - feature/hybrid-tv-stable-v1
     paths:
       - 'AndroidManifest-hybrid-stable.xml'
+      - 'AndroidManifest-hybrid-youtube-preview.xml'
       - 'build-hybrid-stable.sh'
       - '.github/workflows/hybrid-stable.yml'
       - 'src/com/ansub/tvhome/**'
@@ -13,6 +14,7 @@ on:
   pull_request:
     paths:
       - 'AndroidManifest-hybrid-stable.xml'
+      - 'AndroidManifest-hybrid-youtube-preview.xml'
       - 'build-hybrid-stable.sh'
       - '.github/workflows/hybrid-stable.yml'
       - 'src/com/ansub/tvhome/**'
@@ -126,6 +128,69 @@ jobs:
         with:
           name: hybrid-tv-v1-emulator-screenshot
           path: hybrid-tv-v1-emulator.png
+
+  build-youtube-preview:
+    name: Build separately installable v1.0.1 YouTube preview
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Android SDK 34
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-34" "build-tools;34.0.0" >/dev/null
+      - name: Verify personal-photo wallpaper is not replaced by media artwork
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=src/com/ansub/tvhome/HybridActivity.java
+          grep -Fq 'photo = new TvWallpaperView(this)' "$SRC"
+          grep -Fq 'SLIDE_MS = 60000L' "$SRC"
+          grep -Fq 'heroArtwork.setImageBitmap(' "$SRC"
+          if grep -Eq 'cinematic\.(setImageBitmap|setVisibility|setImageDrawable)' "$SRC"; then
+            echo 'FAIL: video thumbnail must not replace the photo wallpaper' >&2
+            exit 1
+          fi
+          # Regression guard: sample loop must rediscover new YouTube sessions.
+          LISTENER=src/com/ansub/tvhome/HybridSessionListener.java
+          grep -Fq 'refreshActiveSessions();' "$LISTENER"
+          grep -Fq 'attach(sessions.getActiveSessions(component));' "$LISTENER"
+          grep -Fq 'SAMPLE_INTERVAL_MS = 15000L' "$LISTENER"
+          # The preview must recover an owner-authorized service after TCL reboot.
+          grep -Fq 'liveConnection = true;' "$LISTENER"
+          grep -Fq 'liveConnection = false;' "$LISTENER"
+          grep -Fq 'requestMediaListenerRebindIfNeeded();' "$SRC"
+          grep -Fq 'NotificationListenerService.requestRebind(component);' "$SRC"
+          # TCL Settings button is Linux scan code 233 from BT_RC813_MA;
+          # it is NOT Android keycode 233 (an unrelated TV key).
+          grep -Fq 'event.getScanCode() == 233' "$SRC"
+          grep -Fq '"BT_RC813_MA".equals(remoteName)' "$SRC"
+          grep -Fq 'Log.i("HybridTclKeys"' "$SRC"
+      - name: Build isolated preview using disposable signing key
+        env:
+          MODE: preview
+        run: sh build-hybrid-stable.sh
+      - name: Verify preview package, signature and preserved stable identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=out-hybrid-stable/hybrid-tv-v1.0.1-youtube-preview.apk
+          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify "$APK"
+          "$ANDROID_HOME/build-tools/34.0.0/aapt" dump badging "$APK" |
+            grep -F "package: name='com.ansub.tvhome.hybrid.youtube.preview'"
+          "$ANDROID_HOME/build-tools/34.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml > /tmp/hybrid-youtube-preview-manifest.txt
+          grep -q 'android.intent.category.LEANBACK_LAUNCHER' /tmp/hybrid-youtube-preview-manifest.txt
+          ! grep -q 'android.intent.category.HOME' /tmp/hybrid-youtube-preview-manifest.txt
+          echo 'PASS: preview is separately installed and never competes for HOME'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hybrid-tv-v1.0.1-youtube-preview-apk
+          path: out-hybrid-stable/hybrid-tv-v1.0.1-youtube-preview.apk
+          retention-days: 14
 
   release-signed:
     name: Stable APK — same owner-held signing key on every update

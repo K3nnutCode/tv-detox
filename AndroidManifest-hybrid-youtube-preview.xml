@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.ansub.tvhome.hybrid.youtube.preview"
+    android:versionCode="101" android:versionName="1.0.1-preview">
+    <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="30"/>
+    <queries>
+        <intent><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LEANBACK_LAUNCHER"/></intent>
+        <intent><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent>
+        <package android:name="com.stremio.one"/>
+        <package android:name="com.google.android.youtube.tv"/>
+    </queries>
+    <!-- Existing features only. No app-control or system-setting privileges. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
+    <uses-feature android:name="android.software.leanback" android:required="false"/>
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false"/>
+    <application android:label="Hybrid TV YouTube Preview" android:allowBackup="false"
+        android:usesCleartextTraffic="false" android:theme="@android:style/Theme.Material.NoActionBar.Fullscreen">
+        <activity android:name="com.ansub.tvhome.HybridActivity"
+            android:exported="true" android:launchMode="singleTask" android:screenOrientation="landscape"
+            android:configChanges="orientation|screenSize|uiMode">
+            <!-- Preview must not declare HOME: stable launcher remains default. -->
+            <!-- Launch manually from TV Apps without changing the default Home. -->
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER"/>
+            </intent-filter>
+        </activity>
+        <!-- Optional broad system notification access; implementation only
+             reads media session data belonging to com.stremio.one. -->
+        <service android:name="com.ansub.tvhome.HybridSessionListener"
+            android:exported="true" android:label="Hybrid TV Preview playback session access"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService"/>
+            </intent-filter>
+        </service>
+    </application>
+</manifest>
