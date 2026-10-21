@@ -160,6 +160,11 @@ jobs:
           grep -Fq 'refreshActiveSessions();' "$LISTENER"
           grep -Fq 'attach(sessions.getActiveSessions(component));' "$LISTENER"
           grep -Fq 'SAMPLE_INTERVAL_MS = 15000L' "$LISTENER"
+          # The preview must recover an owner-authorized service after TCL reboot.
+          grep -Fq 'liveConnection = true;' "$LISTENER"
+          grep -Fq 'liveConnection = false;' "$LISTENER"
+          grep -Fq 'requestMediaListenerRebindIfNeeded();' "$SRC"
+          grep -Fq 'NotificationListenerService.requestRebind(component);' "$SRC"
       - name: Build isolated preview using disposable signing key
         env:
           MODE: preview
