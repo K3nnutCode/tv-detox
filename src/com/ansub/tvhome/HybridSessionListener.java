@@ -43,31 +43,46 @@ public final class HybridSessionListener extends NotificationListenerService {
     private final MediaSessionManager.OnActiveSessionsChangedListener sessionListener =
             controllers -> attach(controllers);
 
+    private static final long SAMPLE_INTERVAL_MS = 15000L;
     private final Runnable sampling = new Runnable() {
         @Override public void run() {
             if (!connected) return;
-            // Session callback events may not include continuously advancing
-            // position. Sample while Stremio is active, at modest 15s cadence.
-            saveCurrent();
-            main.postDelayed(this, 15000);
+            // TCL/YouTube can expose a valid active media session without
+            // sending OnActiveSessionsChangedListener to this service.
+            // Discover sessions again every 15s; merely sampling a cached
+            // youtubeController cannot find a previously missed session.
+            refreshActiveSessions();
+            if (connected) main.postDelayed(this, SAMPLE_INTERVAL_MS);
         }
     };
 
+    private void refreshActiveSessions() {
+        if (!connected || sessions == null) return;
+        try {
+            ComponentName component = new ComponentName(this, HybridSessionListener.class);
+            attach(sessions.getActiveSessions(component));
+        } catch (SecurityException ignored) {
+            // Android may withdraw the owner's opt-in access at any time.
+        } catch (RuntimeException ignored) {
+            // TV firmware can briefly reject active-session queries.
+            // Retain the last valid snapshot and retry on the next sample.
+        }
+    }
+
     @Override public void onListenerConnected() {
         super.onListenerConnected();
+        main.removeCallbacks(sampling);
         connected = true;
+        sessions = (MediaSessionManager) getSystemService(MEDIA_SESSION_SERVICE);
+        if (sessions == null) return;
+        ComponentName component = new ComponentName(this, HybridSessionListener.class);
         try {
-            sessions = (MediaSessionManager) getSystemService(MEDIA_SESSION_SERVICE);
-            if (sessions == null) return;
-            ComponentName component = new ComponentName(this, HybridSessionListener.class);
             sessions.addOnActiveSessionsChangedListener(sessionListener, component, main);
-            attach(sessions.getActiveSessions(component));
-            main.removeCallbacks(sampling);
-            main.post(sampling);
         } catch (RuntimeException ignored) {
-            // Permission/firmware issues are nonfatal. The foreground preview
-            // continues using its normal live-session query when possible.
+            // Still poll: some Android TV firmware cannot register callbacks.
         }
+        refreshActiveSessions();
+        main.postDelayed(sampling, SAMPLE_INTERVAL_MS);
     }
 
     private void attach(List<MediaController> controllers) {
