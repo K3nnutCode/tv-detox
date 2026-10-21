@@ -27,6 +27,11 @@ public final class HybridSessionListener extends NotificationListenerService {
     private MediaController stremioController;
     private MediaController youtubeController;
     private boolean connected;
+    // This service and HybridActivity share the normal application process.
+    // A persisted access grant alone does not prove TCL has bound the service.
+    private static volatile boolean liveConnection;
+
+    static boolean isLiveConnection() { return liveConnection; }
 
     private final MediaController.Callback controllerCallback = new MediaController.Callback() {
         @Override public void onMetadataChanged(MediaMetadata metadata) { saveCurrent(); }
@@ -73,6 +78,7 @@ public final class HybridSessionListener extends NotificationListenerService {
         super.onListenerConnected();
         main.removeCallbacks(sampling);
         connected = true;
+        liveConnection = true;
         sessions = (MediaSessionManager) getSystemService(MEDIA_SESSION_SERVICE);
         if (sessions == null) return;
         ComponentName component = new ComponentName(this, HybridSessionListener.class);
@@ -137,6 +143,7 @@ public final class HybridSessionListener extends NotificationListenerService {
 
     private void detach() {
         connected = false;
+        liveConnection = false;
         main.removeCallbacks(sampling);
         if (sessions != null) {
             try { sessions.removeOnActiveSessionsChangedListener(sessionListener); }
