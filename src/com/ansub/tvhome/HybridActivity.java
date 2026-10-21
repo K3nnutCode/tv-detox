@@ -739,20 +739,20 @@ public final class HybridActivity extends Activity {
     }
 
     private void openTvSettings() {
-        // This device resolved android.settings.SETTINGS to
-        // com.android.tv.settings/.MainSettings in the user's ADB test.
-        // Try that normal intent first; then the exact confirmed component.
-        Intent ordinary = new Intent(Settings.ACTION_SETTINGS);
-        ordinary.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        try {
-            startActivity(ordinary);
-            return;
-        } catch (RuntimeException ignored) { }
+        // ADB identified the exact Android TV Settings activity on this TCL.
+        // Target it directly; if this firmware blocks exported activity launch,
+        // fall back to the ordinary Android Settings intent.
         Intent explicit = new Intent(Intent.ACTION_MAIN);
         explicit.setClassName("com.android.tv.settings", "com.android.tv.settings.MainSettings");
         explicit.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         try {
             startActivity(explicit);
+            return;
+        } catch (RuntimeException ignored) { }
+        Intent ordinary = new Intent(Settings.ACTION_SETTINGS);
+        ordinary.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        try {
+            startActivity(ordinary);
         } catch (RuntimeException e) {
             Toast.makeText(this,"TV Settings could not be opened", Toast.LENGTH_LONG).show();
         }
