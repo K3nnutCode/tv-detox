@@ -31,8 +31,10 @@ import android.service.notification.NotificationListenerService;
 import android.provider.Settings;
 import android.text.TextUtils;
 import android.util.TypedValue;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.KeyEvent;
+import android.view.InputDevice;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
@@ -333,8 +335,39 @@ public final class HybridActivity extends Activity {
      * Never consume BACK, HOME, volume, or other system keys.
      */
     @Override public boolean dispatchKeyEvent(KeyEvent event) {
-        if (dockTiles.isEmpty()) return super.dispatchKeyEvent(event);
         final int code = event.getKeyCode();
+        final InputDevice source = event.getDevice();
+        final String remoteName = source == null ? "" : source.getName();
+        final boolean tclRemote = "BT_RC813_MA".equals(remoteName);
+
+        // TCL BT_RC813_MA emits Linux KEY_FORWARDMAIL (233), mapped by
+        // Generic.kl to vendor TCL_SET. This is a *scan code*, NOT Android
+        // KEYCODE_233. Handle only this remote and scan code, and only when
+        // the firmware actually delivers the event to the application.
+        if (tclRemote && event.getScanCode() == 233) {
+            if (event.getAction() == KeyEvent.ACTION_DOWN) {
+                Log.i("HybridTclKeys", "TCL_SET delivered: androidKeyCode=" + code
+                        + " scanCode=" + event.getScanCode());
+                if (event.getRepeatCount() == 0) openTvSettings();
+            }
+            return true;
+        }
+        // Diagnostics for other non-navigation TCL remote keys, in case
+        // OEM firmware changes the scan-code mapping on this model.
+        if (tclRemote && event.getAction() == KeyEvent.ACTION_DOWN
+                && code != KeyEvent.KEYCODE_DPAD_UP
+                && code != KeyEvent.KEYCODE_DPAD_DOWN
+                && code != KeyEvent.KEYCODE_DPAD_LEFT
+                && code != KeyEvent.KEYCODE_DPAD_RIGHT
+                && code != KeyEvent.KEYCODE_DPAD_CENTER
+                && code != KeyEvent.KEYCODE_ENTER
+                && code != KeyEvent.KEYCODE_VOLUME_UP
+                && code != KeyEvent.KEYCODE_VOLUME_DOWN) {
+            Log.i("HybridTclKeys", "Remote key delivered: androidKeyCode=" + code
+                    + " scanCode=" + event.getScanCode()
+                    + " device=" + remoteName);
+        }
+        if (dockTiles.isEmpty()) return super.dispatchKeyEvent(event);
         final boolean direction = code == KeyEvent.KEYCODE_DPAD_LEFT
                 || code == KeyEvent.KEYCODE_DPAD_RIGHT
                 || code == KeyEvent.KEYCODE_DPAD_UP
