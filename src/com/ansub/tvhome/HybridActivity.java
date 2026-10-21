@@ -120,15 +120,27 @@ public final class HybridActivity extends Activity {
 
         View shade = new View(this);
         shade.setBackground(new GradientDrawable(GradientDrawable.Orientation.BOTTOM_TOP,
-                new int[]{0xCD07101B, 0x55091322, 0x00000000}));
+                new int[]{0xA90C1320, 0x390D1723, 0x00000000}));
         FrameLayout.LayoutParams scrim = new FrameLayout.LayoutParams(-1, px(730), Gravity.BOTTOM);
         stage.addView(shade, scrim);
+
+
+        // One quiet shared glass ribbon replaces three visually heavy panels.
+        // Individual information sections have no separate tinted card backing.
+        View ribbon = new View(this);
+        ribbon.setBackground(round(0xAC26323F, 30, 0x42FFFFFF));
+        stage.addView(ribbon, pos(px(54), px(44), px(1812), px(160)));
+        for (int x : new int[]{405, 1435}) {
+            View separator = new View(this);
+            separator.setBackgroundColor(0x55FFFFFF);
+            stage.addView(separator, pos(px(x), px(67), px(1), px(111)));
+        }
 
         LinearLayout clock = new LinearLayout(this);
         clock.setOrientation(LinearLayout.VERTICAL);
         clock.setGravity(Gravity.CENTER_VERTICAL);
-        clock.setPadding(px(26), px(12), px(18), px(12));
-        greetingView = text("GOOD NIGHT", 22, 0xCCFFFFFF, false);
+        clock.setPadding(px(6), px(5), px(9), px(5));
+        greetingView = text("GOOD NIGHT", 16, 0xD4FFFFFF, false);
         updateGreeting();
         clock.addView(greetingView);
         TextClock time = new TextClock(this);
@@ -136,7 +148,7 @@ public final class HybridActivity extends Activity {
         time.setFormat24Hour("HH:mm");
         time.setTimeZone("Asia/Brunei");
         time.setTextColor(Color.WHITE);
-        time.setTextSize(TypedValue.COMPLEX_UNIT_PX, px(118));
+        time.setTextSize(TypedValue.COMPLEX_UNIT_PX, px(76));
         time.setIncludeFontPadding(false);
         clock.addView(time);
         TextClock date = new TextClock(this);
@@ -144,25 +156,24 @@ public final class HybridActivity extends Activity {
         date.setFormat24Hour("EEEE, d MMMM");
         date.setTimeZone("Asia/Brunei");
         date.setTextColor(0xDDFFFFFF);
-        date.setTextSize(TypedValue.COMPLEX_UNIT_PX, px(24));
+        date.setTextSize(TypedValue.COMPLEX_UNIT_PX, px(19));
         clock.addView(date);
-        clock.setBackground(round(0x5224344C, 23, 0x25FFFFFF));
-        stage.addView(clock, pos(px(60), px(44), px(380), -2));
+        stage.addView(clock, pos(px(82), px(52), px(298), -2));
 
         // Live current/next prayer panel, with immutable local PDI timetable.
         // Outside verified 2026-10 .. 2026-12, deliberately show no times.
         LinearLayout prayers = new LinearLayout(this);
         prayers.setOrientation(LinearLayout.VERTICAL);
-        prayers.setPadding(px(22), px(14), px(22), px(12));
-        prayers.setBackground(round(0xA8182536, 23, 0x45FFFFFF));
+        prayers.setPadding(px(12), px(5), px(12), px(5));
+        // The shared ribbon supplies the glass background.
 
         LinearLayout prayerHeading = new LinearLayout(this);
         prayerHeading.setGravity(Gravity.CENTER_VERTICAL);
         prayerHeading.setOrientation(LinearLayout.HORIZONTAL);
-        TextView prayerTitle = text("☪  WAKTU SOLAT · BRUNEI–MUARA", 25, Color.WHITE, true);
+        TextView prayerTitle = text("☪  WAKTU SOLAT · BRUNEI–MUARA", 20, Color.WHITE, true);
         prayerTitle.setSingleLine(true);
         prayerHeading.addView(prayerTitle, new LinearLayout.LayoutParams(0, -2, 1f));
-        prayerNextView = text("Checking timetable", 19, 0xFFF2D9A1, true);
+        prayerNextView = text("Checking timetable", 16, 0xFFF2D9A1, true);
         prayerNextView.setSingleLine(true);
         prayerNextView.setGravity(Gravity.RIGHT);
         prayerHeading.addView(prayerNextView, new LinearLayout.LayoutParams(0, -2, 1f));
@@ -171,18 +182,18 @@ public final class HybridActivity extends Activity {
         LinearLayout prayerRow = new LinearLayout(this);
         prayerRow.setOrientation(LinearLayout.HORIZONTAL);
         prayerRow.setGravity(Gravity.CENTER);
-        LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(-1, px(87));
-        rp.topMargin = px(9);
+        LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(-1, px(70));
+        rp.topMargin = px(3);
         prayers.addView(prayerRow, rp);
         for (int i = 0; i < 5; i++) {
             LinearLayout cell = new LinearLayout(this);
             cell.setOrientation(LinearLayout.VERTICAL);
             cell.setGravity(Gravity.CENTER);
-            cell.setPadding(px(4), px(5), px(4), px(5));
-            TextView name = text(PrayerSchedule2026.PRAYERS[i], 21, 0xFFE5EBF5, false);
+            cell.setPadding(px(3), px(1), px(3), px(1));
+            TextView name = text(PrayerSchedule2026.PRAYERS[i], 17, 0xFFE5EBF5, false);
             name.setGravity(Gravity.CENTER);
             cell.addView(name);
-            TextView value = text("--:--", 28, Color.WHITE, true);
+            TextView value = text("--:--", 24, Color.WHITE, true);
             value.setGravity(Gravity.CENTER);
             LinearLayout.LayoutParams vp = new LinearLayout.LayoutParams(-1, -2);
             vp.topMargin = px(2);
@@ -197,22 +208,22 @@ public final class HybridActivity extends Activity {
 
         LinearLayout prayerFooter = new LinearLayout(this);
         prayerFooter.setOrientation(LinearLayout.HORIZONTAL);
-        prayerPeriodView = text("", 17, 0xFFF0D9A9, true);
+        prayerPeriodView = text("", 14, 0xFFF0D9A9, true);
         prayerPeriodView.setSingleLine(true);
         prayerFooter.addView(prayerPeriodView, new LinearLayout.LayoutParams(0, -2, 1f));
-        prayerSourceView = text("2026 PDI · Offline · Asia/Brunei", 16, 0xFFD2DAE6, false);
+        prayerSourceView = text("2026 PDI · Offline · Asia/Brunei", 13, 0xFFD2DAE6, false);
         prayerSourceView.setGravity(Gravity.RIGHT);
         prayerSourceView.setSingleLine(true);
         prayerFooter.addView(prayerSourceView, new LinearLayout.LayoutParams(0, -2, 1f));
         prayers.addView(prayerFooter);
-        stage.addView(prayers, pos(px(465), px(44), px(890), -2));
+        stage.addView(prayers, pos(px(430), px(52), px(980), -2));
         updatePrayerPanel();
 
-        weather = new HybridWeatherWidget(this, scale);
-        weather.setBackground(round(0x8F162739, 24, 0x30FFFFFF));
-        FrameLayout.LayoutParams wp = new FrameLayout.LayoutParams(px(455), -2, Gravity.TOP | Gravity.RIGHT);
-        wp.topMargin = px(44);
-        wp.rightMargin = px(60);
+        weather = new HybridWeatherWidget(this, scale, true);
+        weather.setBackgroundColor(Color.TRANSPARENT);
+        FrameLayout.LayoutParams wp = new FrameLayout.LayoutParams(px(380), -2, Gravity.TOP | Gravity.RIGHT);
+        wp.topMargin = px(57);
+        wp.rightMargin = px(85);
         stage.addView(weather, wp);
 
         // FEATURED HERO: reference layout at 1920x1080.
