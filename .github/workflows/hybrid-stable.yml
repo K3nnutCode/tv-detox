@@ -7,6 +7,7 @@ on:
     paths:
       - 'AndroidManifest-hybrid-stable.xml'
       - 'AndroidManifest-hybrid-youtube-preview.xml'
+      - 'AndroidManifest-hybrid-glass-preview.xml'
       - 'build-hybrid-stable.sh'
       - '.github/workflows/hybrid-stable.yml'
       - 'src/com/ansub/tvhome/**'
@@ -15,6 +16,7 @@ on:
     paths:
       - 'AndroidManifest-hybrid-stable.xml'
       - 'AndroidManifest-hybrid-youtube-preview.xml'
+      - 'AndroidManifest-hybrid-glass-preview.xml'
       - 'build-hybrid-stable.sh'
       - '.github/workflows/hybrid-stable.yml'
       - 'src/com/ansub/tvhome/**'
@@ -190,6 +192,59 @@ jobs:
         with:
           name: hybrid-tv-v1.0.1-youtube-preview-apk
           path: out-hybrid-stable/hybrid-tv-v1.0.1-youtube-preview.apk
+          retention-days: 14
+
+  glass-preview:
+    name: Build isolated Hybrid TV Glass v1.1 APK
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Android SDK 34
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-34" "build-tools;34.0.0" >/dev/null
+      - name: Verify Glass design and functional regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=src/com/ansub/tvhome/HybridActivity.java
+          grep -Fq 'photo = new TvWallpaperView(this)' "$SRC"
+          grep -Fq 'SLIDE_MS = 60000L' "$SRC"
+          grep -Fq 'showTvInputSelector' "$SRC"
+          grep -Fq 'getScanCode() == 233' "$SRC"
+          grep -Fq 'new HybridWeatherWidget(this, scale, true)' "$SRC"
+          grep -Fq 'heroArtwork.setImageBitmap(' "$SRC"
+          grep -Fq 'View ribbon = new View(this)' "$SRC"
+          grep -Fq 'showIdle(); // Utility navigation stays quiet' "$SRC"
+          if grep -q 'cinematic.setImageBitmap' "$SRC"; then
+            echo 'Fullscreen artwork overlay regression' >&2
+            exit 1
+          fi
+      - name: Build Glass with disposable signing certificate
+        env:
+          MODE: glass
+        run: sh build-hybrid-stable.sh
+      - name: Verify separate package, TV app entry and NO Home takeover
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=out-hybrid-stable/hybrid-tv-glass-v1.1-preview.apk
+          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify "$APK"
+          "$ANDROID_HOME/build-tools/34.0.0/aapt" dump badging "$APK" | grep -F "package: name='com.ansub.tvhome.hybrid.glass.preview'"
+          "$ANDROID_HOME/build-tools/34.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml > /tmp/hybrid-glass-manifest.txt
+          grep -q 'android.intent.category.LEANBACK_LAUNCHER' /tmp/hybrid-glass-manifest.txt
+          ! grep -q 'android.intent.category.HOME' /tmp/hybrid-glass-manifest.txt
+          ! grep -q 'android.permission.QUERY_ALL_PACKAGES' /tmp/hybrid-glass-manifest.txt
+          echo 'PASS: visually distinct preview cannot replace Stable Home'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hybrid-tv-glass-v1.1-preview-apk
+          path: out-hybrid-stable/hybrid-tv-glass-v1.1-preview.apk
           retention-days: 14
 
   release-signed:
