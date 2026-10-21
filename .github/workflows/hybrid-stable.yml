@@ -155,6 +155,11 @@ jobs:
             echo 'FAIL: video thumbnail must not replace the photo wallpaper' >&2
             exit 1
           fi
+          # Regression guard: sample loop must rediscover new YouTube sessions.
+          LISTENER=src/com/ansub/tvhome/HybridSessionListener.java
+          grep -Fq 'refreshActiveSessions();' "$LISTENER"
+          grep -Fq 'attach(sessions.getActiveSessions(component));' "$LISTENER"
+          grep -Fq 'SAMPLE_INTERVAL_MS = 15000L' "$LISTENER"
       - name: Build isolated preview using disposable signing key
         env:
           MODE: preview
