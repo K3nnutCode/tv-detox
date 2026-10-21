@@ -151,7 +151,7 @@ jobs:
           grep -Fq 'photo = new TvWallpaperView(this)' "$SRC"
           grep -Fq 'SLIDE_MS = 60000L' "$SRC"
           grep -Fq 'heroArtwork.setImageBitmap(' "$SRC"
-          if grep -Eq 'cinematic\\.(setImageBitmap|setVisibility|setImageDrawable)' "$SRC"; then
+          if grep -Eq 'cinematic\.(setImageBitmap|setVisibility|setImageDrawable)' "$SRC"; then
             echo 'FAIL: video thumbnail must not replace the photo wallpaper' >&2
             exit 1
           fi
