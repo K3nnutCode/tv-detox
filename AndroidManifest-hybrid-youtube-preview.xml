@@ -19,14 +19,8 @@
         <activity android:name="com.ansub.tvhome.HybridActivity"
             android:exported="true" android:launchMode="singleTask" android:screenOrientation="landscape"
             android:configChanges="orientation|screenSize|uiMode">
-            <!-- Real Android HOME candidate. User must explicitly choose it.
-                 Do NOT disable, uninstall or hide any other home app. -->
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-                <category android:name="android.intent.category.HOME"/>
-                <category android:name="android.intent.category.DEFAULT"/>
-            </intent-filter>
-            <!-- Also visible in TV Apps for safe manual testing before defaulting. -->
+            <!-- Preview must not declare HOME: stable launcher remains default. -->
+            <!-- Launch manually from TV Apps without changing the default Home. -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER"/>
