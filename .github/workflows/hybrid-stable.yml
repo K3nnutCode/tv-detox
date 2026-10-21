@@ -165,6 +165,11 @@ jobs:
           grep -Fq 'liveConnection = false;' "$LISTENER"
           grep -Fq 'requestMediaListenerRebindIfNeeded();' "$SRC"
           grep -Fq 'NotificationListenerService.requestRebind(component);' "$SRC"
+          # TCL Settings button is Linux scan code 233 from BT_RC813_MA;
+          # it is NOT Android keycode 233 (an unrelated TV key).
+          grep -Fq 'event.getScanCode() == 233' "$SRC"
+          grep -Fq '"BT_RC813_MA".equals(remoteName)' "$SRC"
+          grep -Fq 'Log.i("HybridTclKeys"' "$SRC"
       - name: Build isolated preview using disposable signing key
         env:
           MODE: preview
