@@ -599,14 +599,78 @@ public final class HybridActivity extends Activity {
         if (STREMIO.equals(pkg)) {
             showStremio();
         } else if (YOUTUBE.equals(pkg)) {
-            details.setText("Continue Watching");
-            footnote.setText("Playback history preview pending YouTube compatibility test");
+            showYoutube();
         } else if ("inputs".equals(pkg) || "settings".equals(pkg)) {
             details.setText("TV controls");
             footnote.setText("Press OK to open " + label);
         } else {
             details.setText("Featured app");
             footnote.setText("Press OK to open " + label + " · No viewing data accessed");
+        }
+    }
+
+    private void showYoutube() {
+        NotificationManager notifications = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        ComponentName listener = new ComponentName(this, HybridSessionListener.class);
+        if (notifications == null || !notifications.isNotificationListenerAccessGranted(listener)) {
+            YoutubeSnapshotStore.clear(this);
+            heading.setText("YouTube");
+            details.setText("Playback preview unavailable");
+            footnote.setText("Enable Hybrid TV media-session notification access");
+            return;
+        }
+        YoutubeSnapshotStore.Snapshot snapshot = null;
+        boolean live = false;
+        try {
+            MediaSessionManager manager = (MediaSessionManager) getSystemService(MEDIA_SESSION_SERVICE);
+            if (manager != null) for (MediaController controller : manager.getActiveSessions(listener)) {
+                if (!YOUTUBE.equals(controller.getPackageName())) continue;
+                MediaMetadata metadata = controller.getMetadata();
+                PlaybackState state = controller.getPlaybackState();
+                snapshot = YoutubeSnapshotStore.current(metadata, state);
+                if (snapshot == null) continue;
+                // Listener saves in the background. Keep this fallback in case
+                // TCL does not deliver a callback before the user presses HOME.
+                YoutubeSnapshotStore.capture(this, metadata, state);
+                live = true;
+                break;
+            }
+        } catch (RuntimeException ignored) {
+            // No crash if YouTube or the OEM media-session service is unavailable.
+        }
+        if (snapshot == null) snapshot = YoutubeSnapshotStore.read(this);
+        if (snapshot == null) {
+            heading.setText("YouTube");
+            details.setText("Recent playback not available");
+            footnote.setText("Play a video in YouTube, then press Home");
+            return;
+        }
+        heroEyebrow.setText(live
+                ? "YOUTUBE  ·  MEDIA SESSION"
+                : "LAST SEEN  ·  YOUTUBE  ·  SAVED");
+        heading.setText(snapshot.title);
+        details.setText(snapshot.subtitle.isEmpty() ? "YouTube video" : snapshot.subtitle);
+        if (snapshot.duration > 0 && snapshot.position >= 0) {
+            long watched = Math.min(snapshot.position, snapshot.duration);
+            playbackProgress.setProgress((int) Math.max(0L,
+                    Math.min(1000L, watched * 1000L / snapshot.duration)));
+            playbackProgress.setVisibility(View.VISIBLE);
+            footnote.setText(fmt(watched) + (live ? " elapsed" : " saved") + "  ·  "
+                    + fmt(snapshot.duration - watched) + " left");
+        } else if (snapshot.position >= 0) {
+            // YouTube TV may provide a title and position without a duration.
+            // A percentage/progress bar would be fabricated in that case.
+            footnote.setText(fmt(snapshot.position) + (live ? " elapsed" : " saved")
+                    + "  ·  Total duration unavailable");
+        } else {
+            footnote.setText(live ? "Playback position unavailable"
+                    : "Saved YouTube playback · Position unavailable");
+        }
+        if (snapshot.artwork != null && !snapshot.artwork.isRecycled()) {
+            heroArtwork.setImageBitmap(snapshot.artwork);
+            heroArtwork.setVisibility(View.VISIBLE);
+            cinematic.setImageBitmap(snapshot.artwork);
+            cinematic.setVisibility(View.VISIBLE);
         }
     }
 
@@ -730,6 +794,7 @@ public final class HybridActivity extends Activity {
         startPhotos();
         View focus = getCurrentFocus();
         if (focus != null && STREMIO.equals(focus.getTag())) showSelection(STREMIO, "Stremio");
+        else if (focus != null && YOUTUBE.equals(focus.getTag())) showSelection(YOUTUBE, "YouTube");
     }
 
     @Override protected void onPause() {
