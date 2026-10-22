@@ -10,6 +10,7 @@ on:
       - 'AndroidManifest-hybrid-glass-preview.xml'
       - 'build-hybrid-stable.sh'
       - '.github/workflows/hybrid-stable.yml'
+      - 'ci/glass-browse-smoke-test.sh'
       - 'src/com/ansub/tvhome/**'
       - 'apps-photos.txt'
   pull_request:
@@ -19,6 +20,7 @@ on:
       - 'AndroidManifest-hybrid-glass-preview.xml'
       - 'build-hybrid-stable.sh'
       - '.github/workflows/hybrid-stable.yml'
+      - 'ci/glass-browse-smoke-test.sh'
       - 'src/com/ansub/tvhome/**'
       - 'apps-photos.txt'
   workflow_dispatch:
@@ -280,6 +282,39 @@ jobs:
           name: hybrid-tv-glass-v1.1-preview-apk
           path: out-hybrid-stable/hybrid-tv-glass-v1.1-preview.apk
           retention-days: 14
+
+  glass-browse-test:
+    name: Verify Glass Browse and Photo Home navigation on Android TV 11
+    if: github.event_name == 'pull_request'
+    needs: glass-preview
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: hybrid-tv-glass-v1.1-preview-apk
+          path: out-hybrid-stable
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+      - name: Exercise Browse using the remote without notification access
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: android-tv
+          arch: x86
+          profile: tv_1080p
+          disable-animations: true
+          script: sh ci/glass-browse-smoke-test.sh emulator-5554 glass-browse-results
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: glass-browse-emulator-results
+          path: glass-browse-results
+          retention-days: 7
 
   release-signed:
     name: Stable APK — same owner-held signing key on every update

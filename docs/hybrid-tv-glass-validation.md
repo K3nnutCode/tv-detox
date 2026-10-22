@@ -8,6 +8,14 @@ This draft runs on the user's TCL Android TV 11. **Do not run any HOME switch, u
 - Additional regression scenarios not separately confirmed after this change: reopen, source selection/return to Glass, and physical Input-key entry if delivered by the TV (from another dock tile or idle). Original selector navigation, Back dismissal and correct source switching had owner acceptance before this refinement.
 - No notification-listener access is needed. Full media-card validation remains untested while the owner leaves that permission disabled.
 
+## Separate Browse screen: validation gates
+1. With notification-listener access still disabled, confirm Photo Home retains its ribbon, six-slot dock, photos and idle behavior. Down enters the dock; Up returns to idle; a further Up opens Browse only in Glass Preview.
+2. Browse keeps the real information ribbon above a light panel: original app artwork, one wide and up to two smaller cards, scrollable app shelf, Photo Home/Inputs/Settings buttons. No fake movie rows or missing-permission playback slabs appear. Fewer installed apps must not create fake cards.
+3. Check D-pad movement between featured cards, header buttons and every shelf item; long labels truncate safely. Opening a real app must work. Returning to Glass should retain Browse and restore its focus.
+4. Open Inputs in Browse, check the underlying highlight rests, and dismiss with Back. Back again returns to idle Photo Home. Reopen Browse and use the Photo Home button. Confirm physical TCL Settings and Android Home behavior separately on the owner TV.
+5. Existing authorized saved-media cards, if available, must say Last seen and open the provider app without claiming deep resume. Revoke access outside the preview and return: app cards must replace saved-media content. This path remains untested when permission is disabled.
+6. Collect an owner Browse screenshot privately and confirm photo rotation after two real fades. No TCL deployment or design sign-off is implied by emulator checks. The emulator script `ci/glass-browse-smoke-test.sh` exercises entry, shelf/header focus, Inputs/Back and Photo Home return without HOME changes or notification grants.
+
 ## Visual checks (1920 × 1080)
 1. Launch Glass preview by explicit component; expect photo-only idle state.
 2. Top: single glass ribbon, clock/date left, all five prayer entries and verified source marker in the center, compact weather right. Nothing overlaps, even with a long next-prayer label.

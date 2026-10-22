@@ -100,6 +100,9 @@ public final class HybridActivity extends Activity {
         }
     };
     private FrameLayout stageView;
+    private LinearLayout homeDock;
+    private TextView browseEntry;
+    private GlassBrowseView browseView;
     private HybridWeatherWidget weather;
     private boolean active;
     private static long lastListenerRebindElapsed;
@@ -334,7 +337,18 @@ public final class HybridActivity extends Activity {
         dockParams.rightMargin = px(284);
         dockParams.bottomMargin = px(55);
         stage.addView(dock, dockParams);
+        homeDock = dock;
         buildDock(dock);
+
+        if ("com.ansub.tvhome.hybrid.glass.preview".equals(getPackageName())) {
+            browseEntry = text("↑  Browse", 23, Color.WHITE, true);
+            browseEntry.setGravity(Gravity.CENTER);
+            browseEntry.setBackground(round(0xB0263440, 20, 0x65FFFFFF));
+            browseEntry.setContentDescription("Open Browse: press Up from idle");
+            browseEntry.setOnClickListener(v -> openBrowse());
+            browseEntry.setFocusable(false);
+            stage.addView(browseEntry, pos(px(1634), px(231), px(230), px(58)));
+        }
 
         setContentView(stage);
         // Preserve the photo-only landing screen until the first remote arrow.
@@ -350,7 +364,8 @@ public final class HybridActivity extends Activity {
      * TCL / Android TV D-pad navigation:
      * DOWN or RIGHT from idle enters the dock; LEFT/RIGHT moves between tiles;
      * UP returns to the unobstructed family-photo view; OK launches focused item.
-     * Never consume BACK, HOME, volume, or other system keys.
+     * Glass-only UP from idle opens Browse; BACK there returns to photos.
+     * Never consume HOME, volume, or other system keys.
      */
     @Override public boolean dispatchKeyEvent(KeyEvent event) {
         final int code = event.getKeyCode();
@@ -403,13 +418,24 @@ public final class HybridActivity extends Activity {
             }
             return true;
         }
+        if (browseView != null) {
+            if (code == KeyEvent.KEYCODE_BACK) {
+                if (event.getAction() == KeyEvent.ACTION_UP && !event.isCanceled()) closeBrowse();
+                return true;
+            }
+            // Browse uses native Android focus search, scroll and OK handling.
+            return super.dispatchKeyEvent(event);
+        }
         if (!direction && !select) return super.dispatchKeyEvent(event);
 
         if (event.getAction() == KeyEvent.ACTION_DOWN) {
             int at = focusedDockIndex();
             if (code == KeyEvent.KEYCODE_DPAD_UP) {
-                if (stageView != null) stageView.requestFocus();
-                showIdle();
+                if (at < 0 && browseEntry != null) openBrowse();
+                else {
+                    if (stageView != null) stageView.requestFocus();
+                    showIdle();
+                }
             } else if (code == KeyEvent.KEYCODE_DPAD_DOWN) {
                 if (at < 0) dockTiles.get(0).requestFocus();
             } else if (code == KeyEvent.KEYCODE_DPAD_LEFT) {
@@ -422,6 +448,34 @@ public final class HybridActivity extends Activity {
             }
         }
         return true; // Also consume key-UP so OK cannot trigger twice.
+    }
+
+    private void openBrowse() {
+        if (browseEntry == null || browseView != null) return;
+        showIdle();
+        homeDock.setVisibility(View.GONE);
+        browseEntry.setVisibility(View.GONE);
+        browseView = new GlassBrowseView(this, scale, this::closeBrowse,
+                this::showTvInputSelector, this::openTvSettings);
+        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(-1, -1);
+        lp.leftMargin = px(54);
+        lp.rightMargin = px(54);
+        lp.topMargin = px(228);
+        lp.bottomMargin = px(18);
+        stageView.addView(browseView, lp);
+        browseView.focusFirstCard();
+        browseView.refreshSavedPlayback();
+    }
+
+    private void closeBrowse() {
+        if (browseView == null) return;
+        browseView.cancelPendingMedia();
+        stageView.removeView(browseView);
+        browseView = null;
+        homeDock.setVisibility(View.VISIBLE);
+        browseEntry.setVisibility(View.VISIBLE);
+        stageView.requestFocus();
+        showIdle();
     }
 
     private int focusedDockIndex() {
@@ -1060,6 +1114,7 @@ public final class HybridActivity extends Activity {
         updatePrayerPanel();
         ui.postDelayed(prayerTick, PRAYER_REFRESH_MS);
         startPhotos();
+        if (browseView != null) browseView.refreshSavedPlayback();
         View focus = getCurrentFocus();
         if (focus != null && STREMIO.equals(focus.getTag())) showSelection(STREMIO, "Stremio");
         else if (focus != null && YOUTUBE.equals(focus.getTag())) showSelection(YOUTUBE, "YouTube");
@@ -1067,6 +1122,7 @@ public final class HybridActivity extends Activity {
 
     @Override protected void onPause() {
         active = false;
+        if (browseView != null) browseView.cancelPendingMedia();
         generation++;
         ui.removeCallbacksAndMessages(null);
         weather.stop();

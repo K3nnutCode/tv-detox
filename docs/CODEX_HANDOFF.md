@@ -46,6 +46,11 @@ A premium but very lightweight Android TV launcher inspired by Apple TV's clarit
 4. Preserve branch-only reversible edits, run CI/Android 11 emulator, have owner capture screenshots and give design approval.
 5. Only when UI and functionality tests pass, discuss a separate production signing/promotion plan **after explicit user permission**. Do not merge PR #9/#10 or change default HOME automatically.
 
+## Latest direction: separate light Browse screen
+The owner shared a light streaming-dashboard reference and explicitly chose to **add a separate Browse screen while keeping current Photo Home**. A Glass-only prototype now opens with Up from idle; Back/Photo Home returns to photos. The live ribbon remains above one wide featured card, two smaller cards and a light scrollable app shelf. Content uses actual installed TV apps and original artwork; only existing authorized preview-local saved snapshots may substitute real Last seen media. No catalogs, account integration, new permissions or access grants were added. Notification access remains disabled by owner choice.
+
+See the separate Browse sections in design/validation docs. This new prototype needs build/emulator checks plus owner screenshot and D-pad review; earlier Inputs focus acceptance does not validate the new screen. The previous approval covered the earlier focus-fix build only: **obtain explicit approval before installing this Browse build on the TCL**. Stable Home and previous preview packages remain independent. No merge or release is authorized.
+
 ## Build and TCL workflow (user performs TV commands)
 - Current CI: `.github/workflows/hybrid-stable.yml` (the Glass preview artifact `hybrid-tv-glass-v1.1-preview-apk`), plus repository tests. Glass build: `MODE=glass sh build-hybrid-stable.sh` with disposable cert, Android SDK available. Check the branch's actual workflow before assuming successful runs.
 - For ADB, have user connect their local TV via `adb connect <TV_LAN_IP>:5555` in Windows Git Bash. **Do not put their private IP in this repository.** App component: `com.ansub.tvhome.hybrid.glass.preview/com.ansub.tvhome.HybridActivity`.

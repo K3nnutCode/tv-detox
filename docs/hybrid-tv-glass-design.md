@@ -2,6 +2,17 @@
 
 This branch is a **visual experiment** based on the approved 16:9 mockup. It is separate from the v1.0 default Home and from PR #9's v1.0.1 functionality fixes.
 
+## Separate Browse experiment (22 October 2026)
+The owner supplied a light streaming-dashboard reference and chose **a separate Browse screen**, retaining Photo Home. This is a Phase 5 prototype, not design sign-off or approval to install a new build.
+
+- Glass-only entry: **Up from idle** opens Browse; Up from the existing dock still returns to idle first. A small Browse entry also supports clicking. Back or the **Photo Home** button returns to the idle photo composition. Android Home remains handled by the Stable default launcher.
+- The existing live clock/date, five verified prayer times/source warnings and weather remain visible above Browse. The wallpaper and its 60-second cadence/1050ms crossfade continue independently behind the translucent surface.
+- Reference-inspired light layout: one wide featured app card, two smaller app cards, original banner/icon assets, a horizontally scrollable floating app shelf, restrained cached focus surfaces and small transform animations. No runtime blur, new dependencies, font downloads or continuous shaders.
+- Content is actual launchable installed TV apps. YouTube/Stremio are preferred when installed; remaining published apps are sorted by label. No pretend Movies/Shows catalogs, provider recommendations or invented titles. All cards open their app; none promise deep resume.
+- If the owner already enabled Glass's broad notification-listener access and a valid preview-local saved snapshot exists, the corresponding top card may display real saved title/art, labeled **Last seen**. Reads and image prewarming run off the UI thread and recheck access before display. No access request or grant is made; without access the cards remain app shortcuts. Artwork is aspect-safe and stays inside its card, never wallpaper. No fabricated progress.
+- Inputs and Settings reuse the existing host actions, including the native source chooser and TCL physical Settings handling. Opening the chooser quiets the underlying Browse selection; Back restores it. The six-slot Photo Home dock is unchanged.
+- Required owner review after a separately approved update: compare Browse screenshot to the reference, check readable typography and native logos from sofa distance, shelf scroll/focus, Back/Photo Home, Inputs, Settings, photo rotations and return from launched apps. No screenshot or private media is committed.
+
 ## Design principles
 1. **Photos are the wallpaper**, never YouTube/Stremio art. Every photo is displayed full-bleed using `CENTER_CROP`, regardless of aspect ratio; no stretching or `FIT_CENTER` bars. Slideshow remains independent and preserves aspect ratio by cropping edges of portrait/4:3/ultrawide images.
 2. A **single slim floating information ribbon**, with time/date, the existing locally sourced Brunei-Muara prayer timetable (all five entries and the source/out-of-range notices), and weather.
