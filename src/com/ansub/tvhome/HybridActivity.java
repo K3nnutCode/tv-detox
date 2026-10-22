@@ -324,12 +324,14 @@ public final class HybridActivity extends Activity {
         dock.setGravity(Gravity.CENTER);
         dock.setClipChildren(false);
         dock.setClipToPadding(false);
-        dock.setPadding(px(18), px(14), px(18), px(14));
-        dock.setBackground(round(0x94303B48, 32, 0x4CFFFFFF));
-        FrameLayout.LayoutParams dockParams = new FrameLayout.LayoutParams(-1, px(148), Gravity.BOTTOM);
-        dockParams.leftMargin = px(206);
-        dockParams.rightMargin = px(206);
-        dockParams.bottomMargin = px(58);
+        // A single floating smoked-glass shelf, rather than six banner blocks.
+        // Use cheap translucent fills (not live GPU blur) on Android TV 11.
+        dock.setPadding(px(14), px(12), px(14), px(12));
+        dock.setBackground(round(0xAA263440, 31, 0x4CFFFFFF));
+        FrameLayout.LayoutParams dockParams = new FrameLayout.LayoutParams(-1, px(142), Gravity.BOTTOM);
+        dockParams.leftMargin = px(284);
+        dockParams.rightMargin = px(284);
+        dockParams.bottomMargin = px(55);
         stage.addView(dock, dockParams);
         buildDock(dock);
 
@@ -458,18 +460,20 @@ public final class HybridActivity extends Activity {
             String label = pkg;
             try { label = pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString(); }
             catch (Exception ignored) { }
-            // Use the ORIGINAL banner published by the installed Android TV app.
-            // Do not replace logos/wordmarks with recreated vector branding.
-            Drawable banner = null;
-            try { banner = pm.getActivityBanner(intent); } catch (Exception ignored) { }
-            if (banner == null) {
-                try { banner = pm.getApplicationBanner(pkg); } catch (Exception ignored) { }
-            }
+            // Prefer the ORIGINAL app icon for equal optical weight across
+            // all six dock slots. A native TV banner is a fallback, but is
+            // fitted INSIDE its slot rather than used as a bright tile fill.
+            // Never recreate third-party logos or crop their wordmarks.
             Drawable icon = null;
-            if (banner == null) {
-                try { icon = pm.getApplicationIcon(pkg); } catch (Exception ignored) { }
-                if (icon == null) {
-                    try { icon = pm.getActivityIcon(intent); } catch (Exception ignored) { }
+            try { icon = pm.getApplicationIcon(pkg); } catch (Exception ignored) { }
+            if (icon == null) {
+                try { icon = pm.getActivityIcon(intent); } catch (Exception ignored) { }
+            }
+            Drawable banner = null;
+            if (icon == null) {
+                try { banner = pm.getActivityBanner(intent); } catch (Exception ignored) { }
+                if (banner == null) {
+                    try { banner = pm.getApplicationBanner(pkg); } catch (Exception ignored) { }
                 }
             }
             addDockTile(dock, pkg, label, banner, icon,
@@ -479,104 +483,76 @@ public final class HybridActivity extends Activity {
         addDockTile(dock, "settings", "Settings", null, null, this::openTvSettings);
     }
 
-    /** Original Android TV app banner, fitted to the unchanged TV dock tile. */
+    /**
+     * One optical language for every app and system shortcut:
+     * official app icon/contained banner above a quiet text label, all on the
+     * same frosted-slate glass substrate. Preserve Android's focus/action tags.
+     */
     private void addDockTile(LinearLayout dock, String pkg, String label,
                              Drawable banner, Drawable appIcon, Runnable activate) {
         final LinearLayout tile = new LinearLayout(this);
         tile.setOrientation(LinearLayout.VERTICAL);
         tile.setGravity(Gravity.CENTER);
+        tile.setPadding(px(8), px(11), px(8), px(9));
         tile.setFocusable(true);
         tile.setFocusableInTouchMode(true);
         tile.setClickable(true);
         tile.setClipToOutline(true);
-        // Preserve names to screen readers, but never put a caption below art.
         tile.setContentDescription("Hybrid dock: " + label);
         tile.setTag(pkg);
-        // Cache drawables once, not on every remote focus transition.
-        // The TCL GPU should animate transform/elevation, not allocate glass.
+        // Cached surfaces prevent allocations on every D-pad focus event.
         final Drawable restingGlass = dockSurface(pkg, false);
         final Drawable focusedGlass = dockSurface(pkg, true);
         final Drawable focusRing = dockFocusOutline();
         tile.setBackground(restingGlass);
-        // Focus outline lives only in the foreground. Do NOT paint a blue
-        // background stroke as well, or TCL shows two offset rectangles.
         tile.setForeground(null);
 
-        if (banner != null) {
-            // Fill the full landscape card with the actual Android TV banner.
-            // CENTER_CROP maintains the native proportions (unlike FIT_XY)
-            // while removing the letterbox bars caused by FIT_CENTER.
-            // Keep a 2px image inset. The selected border is overlaid
-            // independently on top of the artwork (not behind the banner).
-            ImageView artwork = new ImageView(this);
-            artwork.setImageDrawable(banner);
-            artwork.setScaleType(ImageView.ScaleType.CENTER_CROP);
-            artwork.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-            tile.setPadding(px(7), px(6), px(7), px(6));
-            tile.addView(artwork, new LinearLayout.LayoutParams(-1, -1));
-        } else if ("inputs".equals(pkg) || "settings".equals(pkg)) {
-            // These are system controls, not app logos: simple TV-style glyphs.
+        if ("inputs".equals(pkg) || "settings".equals(pkg)) {
             ImageView system = new ImageView(this);
             system.setImageDrawable(new LineIcon("inputs".equals(pkg)
                     ? LineIcon.HDMI : LineIcon.SETTINGS));
             system.setScaleType(ImageView.ScaleType.FIT_CENTER);
             system.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-            tile.addView(system, new LinearLayout.LayoutParams(px(55), px(55)));
-            TextView caption = text(label, 19, 0xE8FFFFFF, true);
-            caption.setGravity(Gravity.CENTER);
-            LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(-1, -2);
-            cp.topMargin = px(5);
-            tile.addView(caption, cp);
+            tile.addView(system, new LinearLayout.LayoutParams(px(62), px(62)));
+        } else if (appIcon != null) {
+            // Native Android app icon at a uniform, moderate size. It never
+            // becomes a full-width rectangular billboard over family photos.
+            ImageView artwork = new ImageView(this);
+            artwork.setImageDrawable(appIcon);
+            artwork.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            artwork.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+            tile.addView(artwork, new LinearLayout.LayoutParams(px(68), px(68)));
+        } else if (banner != null) {
+            ImageView artwork = new ImageView(this);
+            artwork.setImageDrawable(banner);
+            artwork.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            artwork.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+            tile.addView(artwork, new LinearLayout.LayoutParams(px(156), px(66)));
         } else {
-            // TV-shaped fallback for apps with NO Leanback banner:
-            // a horizontal brand-mark + wordmark INSIDE the tile.
-            // Never enlarge a mobile square icon to fill the whole TV card.
-            LinearLayout brandRow = new LinearLayout(this);
-            brandRow.setGravity(Gravity.CENTER);
-            brandRow.setOrientation(LinearLayout.HORIZONTAL);
-            brandRow.setPadding(px(12), px(8), px(12), px(8));
-            if (YOUTUBE.equals(pkg)) {
-                TextView play = text("▶", 34, Color.WHITE, true);
-                play.setGravity(Gravity.CENTER);
-                play.setBackground(round(0xFFFF2025, 13, 0x00FFFFFF));
-                brandRow.addView(play, new LinearLayout.LayoutParams(px(67), px(51)));
-            } else if (STREMIO.equals(pkg)) {
-                TextView logo = text("◆", 62, 0xFF9C83FF, true);
-                logo.setGravity(Gravity.CENTER);
-                brandRow.addView(logo, new LinearLayout.LayoutParams(px(65), px(75)));
-            } else if (appIcon != null) {
-                ImageView smallMark = new ImageView(this);
-                smallMark.setImageDrawable(appIcon);
-                smallMark.setScaleType(ImageView.ScaleType.FIT_CENTER);
-                smallMark.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-                brandRow.addView(smallMark, new LinearLayout.LayoutParams(px(64), px(64)));
-            } else {
-                ImageView generic = new ImageView(this);
-                generic.setImageDrawable(new LineIcon(LineIcon.PLAY));
-                generic.setScaleType(ImageView.ScaleType.FIT_CENTER);
-                generic.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-                brandRow.addView(generic, new LinearLayout.LayoutParams(px(60), px(60)));
-            }
-            TextView wordmark = text(STREMIO.equals(pkg) ? "STREMIO" : label,
-                    (YOUTUBE.equals(pkg) || STREMIO.equals(pkg)) ? 31 : 27,
-                    Color.WHITE, true);
-            wordmark.setSingleLine(true);
-            wordmark.setEllipsize(TextUtils.TruncateAt.END);
-            wordmark.setGravity(Gravity.CENTER_VERTICAL);
-            wordmark.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-            LinearLayout.LayoutParams wordParams = new LinearLayout.LayoutParams(0, -2, 1f);
-            wordParams.leftMargin = px(12);
-            brandRow.addView(wordmark, wordParams);
-            tile.addView(brandRow, new LinearLayout.LayoutParams(-1, -1));
+            // Rare case: app publishes neither artwork type.
+            ImageView generic = new ImageView(this);
+            generic.setImageDrawable(new LineIcon(LineIcon.PLAY));
+            generic.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            generic.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+            tile.addView(generic, new LinearLayout.LayoutParams(px(58), px(62)));
         }
+
+        TextView caption = text(label, 19, 0xEEFFFFFF, true);
+        caption.setGravity(Gravity.CENTER);
+        caption.setSingleLine(true);
+        caption.setEllipsize(TextUtils.TruncateAt.END);
+        caption.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        LinearLayout.LayoutParams captionParams = new LinearLayout.LayoutParams(-1, -2);
+        captionParams.topMargin = px(6);
+        tile.addView(caption, captionParams);
 
         tile.setOnFocusChangeListener((v, focused) -> {
             tile.setBackground(focused ? focusedGlass : restingGlass);
             // One rounded highlight only; original TV banner stays unchanged.
             tile.setForeground(focused ? focusRing : null);
-            tile.setElevation(focused ? px(12) : 0);
-            tile.animate().scaleX(focused ? 1.06f : 1f)
-                    .scaleY(focused ? 1.06f : 1f).setDuration(180).start();
+            tile.setElevation(focused ? px(10) : 0);
+            tile.animate().scaleX(focused ? 1.045f : 1f)
+                    .scaleY(focused ? 1.045f : 1f).setDuration(175).start();
             if (focused) showSelection(pkg, label);
         });
         tile.setOnClickListener(v -> {
@@ -585,9 +561,9 @@ public final class HybridActivity extends Activity {
             }
         });
         dockTiles.add(tile);
-        LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(0, px(113), 1f);
-        tp.leftMargin = px(7);
-        tp.rightMargin = px(7);
+        LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(0, px(118), 1f);
+        tp.leftMargin = px(5);
+        tp.rightMargin = px(5);
         dock.addView(tile, tp);
     }
 
@@ -603,31 +579,15 @@ public final class HybridActivity extends Activity {
         return new InsetDrawable(stroke, px(3));
     }
 
-    /** Dark glossy backing; focus outline also overlays the child TV banner. */
+    /** Quiet common glass substrate with a restrained icy-blue focus state. */
     private GradientDrawable dockSurface(String pkg, boolean focused) {
-        int top = 0xEA26354D;
-        int bottom = 0xE5172236;
-        if (STREMIO.equals(pkg)) {
-            top = 0xEA373159;
-            bottom = 0xE51A1C38;
-        } else if (YOUTUBE.equals(pkg)) {
-            top = 0xEA3C3441;
-            bottom = 0xE5222533;
-        } else if ("inputs".equals(pkg) || "settings".equals(pkg)) {
-            top = 0xEA343C47;
-            bottom = 0xE5202836;
-        }
-        if (focused) {
-            top = 0xE748617E;
-            bottom = 0xDA354863;
-        }
+        final int top = focused ? 0xDC426078 : 0xA3263544;
+        final int bottom = focused ? 0xCC30445D : 0xAC202C39;
         GradientDrawable background = new GradientDrawable(
                 GradientDrawable.Orientation.TL_BR, new int[]{top, bottom});
         background.setCornerRadius(px(21));
-        // IMPORTANT: never draw a selected background border here.
-        // It sits UNDER the native banner and creates the second, cut-off
-        // line seen on TCL TV. Selected focus is foreground-only.
-        if (!focused) background.setStroke(px(1), 0x35FFFFFF);
+        // The SINGLE focus border is a foreground drawable; no double ring.
+        if (!focused) background.setStroke(px(1), 0x30FFFFFF);
         return background;
     }
 
