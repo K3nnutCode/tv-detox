@@ -101,7 +101,11 @@ final class GlassBrowseView extends FrameLayout {
         addView(text("YOUR APPS", 19, 0xFF293E51, true), at(40, 527, 800, 34));
         HorizontalScrollView scroll = new HorizontalScrollView(host);
         scroll.setHorizontalScrollBarEnabled(false);
-        scroll.setClipToPadding(false);
+        // The page permits focus lift, but scrolled apps must stay inside
+        // this shelf's rounded viewport, including partially visible items.
+        scroll.setClipToPadding(true);
+        scroll.setClipChildren(true);
+        scroll.setClipToOutline(true);
         scroll.setPadding(px(12), px(10), px(12), px(10));
         scroll.setBackground(surface(0xCFFFFFFF, 0xAFEAF0F5, 26, 0x90FFFFFF));
         scroll.setElevation(px(3));
