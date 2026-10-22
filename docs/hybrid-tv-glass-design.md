@@ -79,3 +79,12 @@ This branch is a **visual experiment** based on the approved 16:9 mockup. It is 
 - Continue decoding wallpaper bitmaps off the main thread with size sampling, then `Bitmap.prepareToDraw()` before foreground presentation. Do not use video-media artwork as wallpaper.
 - Edge case: embedded borders already saved **within the image pixels** will remain part of the picture; a true screen-filling crop cannot automatically identify and remove pre-existing decorative borders.
 - This is a **Glass preview-only experiment**, requiring real TCL visual testing on landscape and portrait images before any stable promotion.
+
+## Phase 5 dock visual prototype — implemented for screenshot review (22 Oct 2026)
+- **Status: experimental; owner has not approved the look on the TCL.**
+- Retains six slots in installed device order (YouTube, Stremio, next two published TV apps, Inputs, Settings), with no changes to app intents, hardware remote Settings scan 233, input chooser, or media snapshots.
+- Moves from oversized native app TV banners to **original application icons**, about 68×68 units, with consistent one-line 19-unit labels. Falls back to native Leanback banner fitted *inside* a 156×66 area if the app has no icon; never stretches or redraws another company's brand.
+- System Input and Settings outline icons use the same visual baseline (62×62), with their caption underneath.
+- The whole shelf is approximately 1,352×142 units at 1920×1080, bottom inset 55 units; slightly more transparent slate backing and six matching rounded dark-glass substrates. Retains **one** icy-blue focus ring, now a 1.045× rise over 175 ms (no expensive runtime blur).
+- All photos remain full-bleed CENTER_CROP behind the dock with the user-verified 1.05-second crossfade.
+- **Review criteria:** authentic app icons not tiny or washed out, all six labels visible at 2–3m on TCL, actual icon fitting/clip and focus ring correct, photo prominent and brand colors no longer turn entire tiles bright white. If any app icon has a large built-in white tile/border, try a bounded vendor-art presentation rather than fake/recolor the asset. Check a real YouTube/Stremio media hero screenshot before sign-off.
