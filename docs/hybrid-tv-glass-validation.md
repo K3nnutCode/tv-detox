@@ -4,8 +4,8 @@ This draft runs on the user's TCL Android TV 11. **Do not run any HOME switch, u
 
 ## Phase 5 Inputs acceptance and focus refinement
 - Owner evidence: open-selector screenshot reviewed for layout/readability; owner confirmed row navigation, Back dismissal and correct source selection. Home returning to Stable after source use is expected.
-- New Glass-only refinement, pending device validation: when the dialog owns window focus, the underlying dock uses its resting surface without the icy-blue ring or focus lift. Android retains the tile selection. Back should restore its normal highlight and navigation position without an extra keypress.
-- After an explicitly approved preview update, check open, Back, reopen, source selection and return to Glass. Also open Inputs via the physical Input key if the TV delivers it, starting from another dock tile or idle; the underlying dock must remain quiet while the dialog owns focus.
+- Glass-only refinement `db7c8ad`, owner-validated on TCL Android TV 11 after an explicitly approved preview update: the open-selector screenshot shows the active HDMI row outline with the underlying Inputs dock tile resting. The owner confirmed Back immediately restores the Inputs dock highlight. This validates the screenshot and restoration behavior; it does not measure animation timing or performance.
+- Additional regression scenarios not separately confirmed after this change: reopen, source selection/return to Glass, and physical Input-key entry if delivered by the TV (from another dock tile or idle). Original selector navigation, Back dismissal and correct source switching had owner acceptance before this refinement.
 - No notification-listener access is needed. Full media-card validation remains untested while the owner leaves that permission disabled.
 
 ## Visual checks (1920 × 1080)
