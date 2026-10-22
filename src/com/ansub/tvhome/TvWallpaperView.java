@@ -7,6 +7,8 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.PorterDuff;
 import android.graphics.Rect;
+import android.os.SystemClock;
+import android.util.Log;
 import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
@@ -26,9 +28,15 @@ final class TvWallpaperView extends FrameLayout {
     // Standard TV is 16:9. Treat 4:3 and portrait images as narrow so they
     // can be seen without cutting faces off at the top/bottom.
     static final float MIN_CROP_ASPECT = 1.55f;
-    private static final int FADE_MS = 850;
+    // Small custom frame callback keeps the fade visible even when the TV's
+    // global Animator duration scale is set to zero (common on Android TVs).
+    // It is only active during a photo change, never continuously.
+    private static final String TAG = "HybridWallpaperFade";
+    private static final int FADE_MS = 1050;
     private final Slide[] slides = new Slide[2];
     private int shown = -1;
+    private int fadeGeneration;
+    private Runnable pendingFade;
 
     private static final class Slide {
         final FrameLayout view;
@@ -145,33 +153,73 @@ final class TvWallpaperView extends FrameLayout {
     /** Called on the UI thread after a photo and optional blur are decoded. */
     void show(Bitmap image, Bitmap backdrop) {
         if (image == null) return;
+        // Stop any earlier fade before recycling the inactive frame. No global
+        // Android animation settings are changed for the rest of the TV.
+        cancelFade();
         final boolean narrow = useBlurredFill(image.getWidth(), image.getHeight());
         final int incoming = shown == 0 ? 1 : 0;
         final Slide next = slides[incoming];
-        next.view.animate().cancel();
         next.clear();
         next.photo.setScaleType(narrow ? ImageView.ScaleType.FIT_CENTER
                 : ImageView.ScaleType.CENTER_CROP);
         next.photo.setImageBitmap(image);
         next.blurred.setImageBitmap(narrow ? backdrop : null);
         next.blurred.setVisibility(narrow && backdrop != null ? VISIBLE : INVISIBLE);
+        // Set alpha BEFORE exposing the new photo to prevent a one-frame flash.
+        next.view.setAlpha(shown < 0 ? 1f : 0f);
         next.view.setVisibility(VISIBLE);
         next.view.bringToFront();
 
         if (shown < 0) {
-            next.view.setAlpha(1f);
             shown = incoming;
             return;
         }
         final Slide previous = slides[shown];
-        previous.view.animate().cancel();
-        next.view.setAlpha(0f);
         shown = incoming;
-        next.view.animate().alpha(1f).setDuration(FADE_MS).withEndAction(() -> {
-            // Remove old bitmap references to avoid long-lived slideshow RAM.
-            // No explicit Bitmap.recycle(): GPU may still be finishing a frame.
-            previous.view.setVisibility(INVISIBLE);
-            previous.clear();
-        }).start();
+        final int token = fadeGeneration;
+        final long startMs = SystemClock.uptimeMillis();
+        Log.i(TAG, "Starting photo crossfade: " + FADE_MS + "ms");
+        pendingFade = new Runnable() {
+            int frames;
+            @Override public void run() {
+                if (token != fadeGeneration) return;
+                frames++;
+                long elapsed = SystemClock.uptimeMillis() - startMs;
+                float t = Math.min(1f, Math.max(0f, elapsed / (float) FADE_MS));
+                // Smoothstep ease-in/out: no abrupt start or end.
+                float opacity = t * t * (3f - 2f * t);
+                next.view.setAlpha(opacity);
+                if (t < 1f) {
+                    next.view.postOnAnimation(this);
+                } else {
+                    next.view.setAlpha(1f);
+                    previous.view.setVisibility(INVISIBLE);
+                    // Avoid holding the prior photo bitmap after the fade.
+                    // Do not call Bitmap.recycle(): the GPU may still be drawing.
+                    previous.clear();
+                    pendingFade = null;
+                    Log.i(TAG, "Photo crossfade complete: " + elapsed
+                            + "ms, " + frames + " frames");
+                }
+            }
+        };
+        // View.postOnAnimation is not governed by the system's animator
+        // duration scale; it schedules only one callback per display frame.
+        next.view.postOnAnimation(pendingFade);
+    }
+
+    private void cancelFade() {
+        ++fadeGeneration;
+        if (pendingFade != null) {
+            removeCallbacks(pendingFade);
+            slides[0].view.removeCallbacks(pendingFade);
+            slides[1].view.removeCallbacks(pendingFade);
+            pendingFade = null;
+        }
+    }
+
+    @Override protected void onDetachedFromWindow() {
+        cancelFade();
+        super.onDetachedFromWindow();
     }
 }
