@@ -224,6 +224,10 @@ jobs:
           grep -Fq 'pm.getApplicationIcon(pkg)' "$SRC"
           grep -Fq 'new LinearLayout.LayoutParams(px(68), px(68))' "$SRC"
           grep -Fq 'caption.setSingleLine(true)' "$SRC"
+          # Unavailable Stremio/YouTube metadata must not cover the family photo.
+          grep -Fq 'heroEyebrow.setVisibility(hasPlayback ? View.VISIBLE : View.GONE)' "$SRC"
+          grep -Fq 'px(hasPlayback ? 275 : 695)' "$SRC"
+          grep -Fq 'px(hasPlayback ? 412 : 151)' "$SRC"
           grep -Fq 'dockSurface(pkg, false)' "$SRC"
           grep -Fq 'new LineIcon("inputs".equals(pkg)' "$SRC"
           grep -Fq 'showIdle(); // Utility navigation stays quiet' "$SRC"
