@@ -221,6 +221,9 @@ jobs:
           grep -Fq 'heroArtwork.setImageBitmap(' "$SRC"
           grep -Fq 'View ribbon = new View(this)' "$SRC"
           grep -Fq 'showIdle(); // Utility navigation stays quiet' "$SRC"
+          # Android 11 wallpaper texture prewarm before first draw, off UI thread.
+          grep -Fq 'result.prepareToDraw();' "$SRC"
+          grep -Fq 'blurred.prepareToDraw();' "$SRC"
           if grep -q 'cinematic.setImageBitmap' "$SRC"; then
             echo 'Fullscreen artwork overlay regression' >&2
             exit 1
