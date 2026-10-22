@@ -3,7 +3,7 @@
 This branch is a **visual experiment** based on the approved 16:9 mockup. It is separate from the v1.0 default Home and from PR #9's v1.0.1 functionality fixes.
 
 ## Design principles
-1. **Photos are the wallpaper**, never YouTube/Stremio art. Wallpaper rotation remains independent and images are aspect-preserving.
+1. **Photos are the wallpaper**, never YouTube/Stremio art. Every photo is displayed full-bleed using `CENTER_CROP`, regardless of aspect ratio; no stretching or `FIT_CENTER` bars. Slideshow remains independent and preserves aspect ratio by cropping edges of portrait/4:3/ultrawide images.
 2. A **single slim floating information ribbon**, with time/date, the existing locally sourced Brunei-Muara prayer timetable (all five entries and the source/out-of-range notices), and weather.
 3. A **smaller featured playback card**, shown for Stremio or YouTube focus only, with title, episode/channel, thumbnail, real progress when duration exists, and one clear action.
 4. A **centered floating dock**, original installed-app banners, clear focus with icy-blue border and approximately 6% lift.
@@ -71,3 +71,11 @@ This branch is a **visual experiment** based on the approved 16:9 mockup. It is 
 3. Verify D-pad focus, long labels, Stremio/YouTube media and empty states; show one predictable focus ring.
 4. Measure navigation after change (baseline 456 frames / 1 janky) and wallpaper crossfade after 2+ confirmed rotations.
 5. Keep PR draft, separate preview package; get explicit owner approval before changing Stable v1.0 HOME.
+
+## Full-bleed wallpaper policy (owner choice, 22 Oct 2026)
+- **Always fill the entire 16:9 TV screen** for every uploaded photograph using Android `ImageView.ScaleType.CENTER_CROP`. A portrait or 4:3 photo necessarily loses portions outside the central TV crop; image pixels are never geometrically stretched.
+- Previous blurred-backdrop + `FIT_CENTER` presentation was intentionally removed; no more inset image or visible side borders.
+- Preserve the owner-tested **1050 ms smoothstep opacity crossfade** via `postOnAnimation`, independent of TCL `animator_duration_scale`. Continue switching every 60 seconds.
+- Continue decoding wallpaper bitmaps off the main thread with size sampling, then `Bitmap.prepareToDraw()` before foreground presentation. Do not use video-media artwork as wallpaper.
+- Edge case: embedded borders already saved **within the image pixels** will remain part of the picture; a true screen-filling crop cannot automatically identify and remove pre-existing decorative borders.
+- This is a **Glass preview-only experiment**, requiring real TCL visual testing on landscape and portrait images before any stable promotion.
