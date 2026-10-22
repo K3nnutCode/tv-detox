@@ -7,7 +7,7 @@
 - **Active development branch:** `feature/hybrid-tv-glass-v1.1-preview`
 - **Active draft PR:** https://github.com/K3nnutCode/tv-detox/pull/10
 - **Functional dependency:** draft PR #9, branch `feature/hybrid-youtube-preview-v1.0.1`. Do not assume it was merged.
-- **Latest owner update: switched default Home back to Google TV, apps retained, no factory reset; start validation fresh.** Preserve Google TV as default/fallback and reuse installed apps. Exact Glass version, photo access, prior system tweaks and current ADB connectivity still need verification; do not reinstall merely to restart validation.
+- **Latest owner update: switched default Home back to Google TV, apps retained, no factory reset; start validation fresh.** Preserve Google TV as default/fallback and reuse installed apps. Owner terminal preflight confirms Glass **1.1.0 / code 110**, installed/enabled by default, with **READ_EXTERNAL_STORAGE granted** and local ADB connected. Current photo availability and system tweaks still need verification. Profile this existing build before updating to candidate 111; do not reinstall merely to restart validation.
 - Historical production Home: `com.ansub.tvhome.hybrid.stable` (**v1.0**, previously default). Keep it untouched if installed; do not restore its HOME role automatically.
 - Separate functional preview: `com.ansub.tvhome.hybrid.youtube.preview` (**v1.0.1**).
 - Glass design preview: `com.ansub.tvhome.hybrid.glass.preview` (**v1.1**, not a HOME candidate). Its test APK is independently/disposably signed.
