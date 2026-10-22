@@ -1200,37 +1200,22 @@ public final class HybridActivity extends Activity {
                 options.inSampleSize = sample;
                 bitmap = BitmapFactory.decodeFile(f.getAbsolutePath(), options);
             } catch (Exception ignored) { }
-            Bitmap result = bitmap;
-            Bitmap blurred = null;
-            if (result != null) {
-                try {
-                    float screenRatio = (float) getResources().getDisplayMetrics().widthPixels
-                            / Math.max(1, getResources().getDisplayMetrics().heightPixels);
-                    blurred = TvWallpaperView.makeBlurredFill(result, screenRatio);
-                } catch (OutOfMemoryError oom) {
-                    // The original photo can still be shown undistorted.
-                    android.util.Log.w("HybridWallpaper", "Backdrop memory limit", oom);
-                }
-            }
-            // Android 7+ schedules an asynchronous RenderThread texture upload.
-            // Doing this on the decoder worker before the next wallpaper frame
-            // avoids making first draw pay the entire new-image upload cost.
-            // Keep the original sampled image and optional low-res blurred fill;
-            // no changes to aspect-ratio handling or slideshow cadence.
+            final Bitmap result = bitmap;
+            // Always full-bleed wallpaper: prepare only the decoded photograph.
+            // CENTER_CROP on TvWallpaperView keeps aspect ratio and fills every
+            // screen; no secondary blurred fill or FIT_CENTER letterboxing.
+            // Prewarm the texture off the UI thread, preserving TCL fade speed.
             try {
                 if (result != null) result.prepareToDraw();
-                if (blurred != null) blurred.prepareToDraw();
             } catch (RuntimeException ignored) {
-                // Optional optimization only; the normal UI draw still works.
+                // Rendering still works without this optional optimization.
             }
-            final Bitmap background = blurred;
             ui.post(() -> {
                 if (!active || token != generation) {
                     if (result != null && !result.isRecycled()) result.recycle();
-                    if (background != null && !background.isRecycled()) background.recycle();
                     return;
                 }
-                if (result != null) photo.show(result, background);
+                if (result != null) photo.show(result);
                 if (photos.size() > 1) ui.postDelayed(this::nextPhoto, SLIDE_MS);
             });
         }).start();
