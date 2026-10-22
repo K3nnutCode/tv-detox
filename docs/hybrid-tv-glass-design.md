@@ -97,3 +97,14 @@ The owner supplied two real TCL 16:9 screenshots of the native-icon dock:
 **Experimental fix**: with no actual Stremio/YouTube playback snapshot, retain source/permission feedback but compress the hero into a **785×151 lower-left strip (x≈74, y≈695)** just above the dock, with smaller typography and no redundant button. When real saved/active media exists, the full **1065×412** media card and original progress/thumbnail return. App launching and listener permission semantics are not changed.
 
 **On-device acceptance:** screenshot the Stremio-no-access case to verify no card covers faces or clips the message. Grant *only* Glass Preview's opt-in broad notification-listener access if desired (separate app permission) and test real Stremio/YouTube saved-media card; never copy saved session data from Stable. Leave actual third-party app icons untouched and keep PR draft.
+
+## Phase 5 top ribbon + HDMI/AV Glass preview (22 October 2026)
+Following owner screenshot approval of the compact, lower-left **Stremio no-playback** strip, we retain the dock and no-data UI as-is. The source screenshot shows the empty strip above the dock, no longer covering faces; it is not proof of a functioning Stremio listener because permission was explicitly not granted to the independently installed Glass package.
+
+This pass makes only small visual changes:
+- Top ribbon remains the same 1920×1080 reference positions; slightly softened cool glass fill and separators without reducing sofa-distance type sizes, hiding any of five prayer times, changing Brunei-Muara PDI offline data/source notices, or changing Open-Meteo weather.
+- HDMI/AV selector stays a native `AlertDialog` for Android TV D-pad accessibility/Back compatibility. Its window gains a slate-glass rounded background (~960 reference px width), restrained dim amount, and source rows gain a consistent glass design with cached idle and focus drawables rather than per-navigation allocations.
+- Input row labels/status values remain **exactly** from published `TvInputInfo` and `TvInputManager`, including honest grey when disconnected/unknown. The existing `TvContract.buildChannelUriForPassthroughInput(...)` switching path is unchanged.
+- No system overlay, HOME takeover, or changing TCL internal settings. Stable `com.ansub.tvhome.hybrid.stable` untouched.
+
+**Acceptance:** after preview build passes, screenshot the top ribbon and separately open Inputs using the dock/remote. Check all published HDMI/AV rows appear and are navigable, status semantics unchanged, Back dismisses, one actual desired input still launches and remote Settings key still works. Focus on visual fit/readability before moving to a finalized design.
