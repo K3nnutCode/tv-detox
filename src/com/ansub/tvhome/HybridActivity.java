@@ -1212,6 +1212,17 @@ public final class HybridActivity extends Activity {
                     android.util.Log.w("HybridWallpaper", "Backdrop memory limit", oom);
                 }
             }
+            // Android 7+ schedules an asynchronous RenderThread texture upload.
+            // Doing this on the decoder worker before the next wallpaper frame
+            // avoids making first draw pay the entire new-image upload cost.
+            // Keep the original sampled image and optional low-res blurred fill;
+            // no changes to aspect-ratio handling or slideshow cadence.
+            try {
+                if (result != null) result.prepareToDraw();
+                if (blurred != null) blurred.prepareToDraw();
+            } catch (RuntimeException ignored) {
+                // Optional optimization only; the normal UI draw still works.
+            }
             final Bitmap background = blurred;
             ui.post(() -> {
                 if (!active || token != generation) {
