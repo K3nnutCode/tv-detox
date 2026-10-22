@@ -11,6 +11,8 @@ This draft runs on the user's TCL Android TV 11. **Do not run any HOME switch, u
 ## Current dark Browse grid: validation gates
 The owner authorized replacing the lighter dashboard after reporting clutter. This grid implementation is a new iteration; earlier light-Browse acceptance does not establish its device readiness.
 
+Automated checkpoint: code commit `387d8eb` passed all three workflows, including the revised Android TV 11 grid test in run `39761604224`. Local build/signature/manifest and existing source guards passed; the offline timetable test covered 92 entries and boundary checks. No owner TCL grid screenshot or post-redesign performance measurement is available yet.
+
 1. Open Glass on Photo Home, Down into its six-slot dock, Up back to idle, then Up again into Browse. Verify native app icons appear once in a four-column grid, with Inputs/Settings in the first two rows and additional apps reachable below. No pale page, giant logo cards or duplicated shelf should remain.
 2. Navigate left/right/up/down, including first/last columns, a partial last row and all offscreen apps. Check long-label truncation and a single focus ring that stays visible at viewport edges. Apps must still launch; returning to Glass should retain Browse and its focus.
 3. Open Inputs from its grid cell, verify underlying focus rests, and dismiss with Back. Back again returns to idle Photo Home. Reopen Browse and use its Photo Home control. Check Settings and the physical TCL Settings key separately on the TV.
