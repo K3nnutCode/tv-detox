@@ -221,11 +221,19 @@ jobs:
           grep -Fq 'heroArtwork.setImageBitmap(' "$SRC"
           grep -Fq 'View ribbon = new View(this)' "$SRC"
           grep -Fq 'showIdle(); // Utility navigation stays quiet' "$SRC"
-          # Android 11 wallpaper texture prewarm before first draw, off UI thread.
+          # Android 11 photo upload prewarm remains off the UI thread.
           grep -Fq 'result.prepareToDraw();' "$SRC"
-          grep -Fq 'blurred.prepareToDraw();' "$SRC"
-          # Real photo fades must continue when TCL Animator duration scale = 0.
+          grep -Fq 'photo.show(result);' "$SRC"
+          ! grep -Fq 'makeBlurredFill(' "$SRC"
+          # All uploaded aspect ratios use real full-bleed, no FIT_CENTER bars
+          # or stretched images; the one-second photo fade stays independent
+          # of TCL's system animator-duration setting.
           WALL=src/com/ansub/tvhome/TvWallpaperView.java
+          grep -Fq 'photo.setScaleType(ImageView.ScaleType.CENTER_CROP)' "$WALL"
+          ! grep -Fq 'ImageView.ScaleType.FIT_CENTER' "$WALL"
+          ! grep -Fq 'ImageView.ScaleType.FIT_XY' "$WALL"
+          ! grep -Fq 'makeBlurredFill(' "$WALL"
+          ! grep -Fq 'useBlurredFill(' "$WALL"
           grep -Fq 'next.view.postOnAnimation(pendingFade);' "$WALL"
           grep -Fq 'Photo crossfade complete:' "$WALL"
           ! grep -Fq 'next.view.animate().alpha(1f)' "$WALL"
