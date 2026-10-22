@@ -88,3 +88,12 @@ This branch is a **visual experiment** based on the approved 16:9 mockup. It is 
 - The whole shelf is approximately 1,352×142 units at 1920×1080, bottom inset 55 units; slightly more transparent slate backing and six matching rounded dark-glass substrates. Retains **one** icy-blue focus ring, now a 1.045× rise over 175 ms (no expensive runtime blur).
 - All photos remain full-bleed CENTER_CROP behind the dock with the user-verified 1.05-second crossfade.
 - **Review criteria:** authentic app icons not tiny or washed out, all six labels visible at 2–3m on TCL, actual icon fitting/clip and focus ring correct, photo prominent and brand colors no longer turn entire tiles bright white. If any app icon has a large built-in white tile/border, try a bounded vendor-art presentation rather than fake/recolor the asset. Check a real YouTube/Stremio media hero screenshot before sign-off.
+
+## Phase 5 owner screenshot review — second refinement (22 Oct 2026)
+The owner supplied two real TCL 16:9 screenshots of the native-icon dock:
+- **Idle**: the revised common glass shelf fits six dock apps and preserves full-bleed photos. Brand icons and single-line labels are legible; focus is unobtrusive. The YouTube native icon includes a white square supplied by the app itself; do not redraw the brand.
+- **Stremio-focused**: the focus ring looks correct, but a **large 720×278 no-media hero** covers the man's face, saying media-session access is required. This is expected for a reinstalled independent preview without notification-listener authorization, and **not** a playback regression.
+
+**Experimental fix**: with no actual Stremio/YouTube playback snapshot, retain source/permission feedback but compress the hero into a **785×151 lower-left strip (x≈74, y≈695)** just above the dock, with smaller typography and no redundant button. When real saved/active media exists, the full **1065×412** media card and original progress/thumbnail return. App launching and listener permission semantics are not changed.
+
+**On-device acceptance:** screenshot the Stremio-no-access case to verify no card covers faces or clips the message. Grant *only* Glass Preview's opt-in broad notification-listener access if desired (separate app permission) and test real Stremio/YouTube saved-media card; never copy saved session data from Stable. Leave actual third-party app icons untouched and keep PR draft.
