@@ -799,14 +799,33 @@ public final class HybridActivity extends Activity {
 
     private void applyPlaybackCardSize(boolean hasPlayback) {
         if (hero == null) return;
-        // Dock OK launches the app. When no session exists, a second faux
-        // button has no value and was clipped by the compact TCL card.
-        // Keep the playback action chip only alongside real media details.
+        // Focused app with no media: a short unobtrusive status strip just
+        // above the dock. Do not place a dark empty panel over family faces.
+        // Playback data present: restore the cinematic media card unchanged.
         heroAction.setVisibility(hasPlayback ? View.VISIBLE : View.GONE);
-        // Empty media state is deliberately small so family photos are primary.
-        // Real media retains the wider layout with its bounded 16:9 artwork.
-        hero.setLayoutParams(pos(px(74), px(hasPlayback ? 275 : 311),
-                px(hasPlayback ? 1065 : 720), px(hasPlayback ? 412 : 278)));
+        heroEyebrow.setVisibility(hasPlayback ? View.VISIBLE : View.GONE);
+        heading.setTextSize(TypedValue.COMPLEX_UNIT_PX, px(hasPlayback ? 52 : 30));
+        heading.setMaxLines(hasPlayback ? 2 : 1);
+        details.setTextSize(TypedValue.COMPLEX_UNIT_PX, px(hasPlayback ? 25 : 21));
+        details.setMaxLines(hasPlayback ? 2 : 1);
+        footnote.setTextSize(TypedValue.COMPLEX_UNIT_PX, px(hasPlayback ? 19 : 17));
+        footnote.setMaxLines(hasPlayback ? 2 : 1);
+
+        LinearLayout.LayoutParams titleParams =
+                (LinearLayout.LayoutParams) heading.getLayoutParams();
+        titleParams.topMargin = px(hasPlayback ? 23 : 0);
+        heading.setLayoutParams(titleParams);
+        LinearLayout.LayoutParams detailsParams =
+                (LinearLayout.LayoutParams) details.getLayoutParams();
+        detailsParams.topMargin = px(hasPlayback ? 9 : 4);
+        details.setLayoutParams(detailsParams);
+        LinearLayout.LayoutParams noteParams =
+                (LinearLayout.LayoutParams) footnote.getLayoutParams();
+        noteParams.topMargin = px(hasPlayback ? 9 : 4);
+        footnote.setLayoutParams(noteParams);
+
+        hero.setLayoutParams(pos(px(74), px(hasPlayback ? 275 : 695),
+                px(hasPlayback ? 1065 : 785), px(hasPlayback ? 412 : 151)));
     }
 
     private void showYoutube() {
