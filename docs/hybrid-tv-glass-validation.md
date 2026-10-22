@@ -2,6 +2,12 @@
 
 This draft runs on the user's TCL Android TV 11. **Do not run any HOME switch, uninstall production apps, or change TV firmware** as part of visual/performance testing.
 
+## Phase 5 Inputs acceptance and focus refinement
+- Owner evidence: open-selector screenshot reviewed for layout/readability; owner confirmed row navigation, Back dismissal and correct source selection. Home returning to Stable after source use is expected.
+- New Glass-only refinement, pending device validation: when the dialog owns window focus, the underlying dock uses its resting surface without the icy-blue ring or focus lift. Android retains the tile selection. Back should restore its normal highlight and navigation position without an extra keypress.
+- After an explicitly approved preview update, check open, Back, reopen, source selection and return to Glass. Also open Inputs via the physical Input key if the TV delivers it, starting from another dock tile or idle; the underlying dock must remain quiet while the dialog owns focus.
+- No notification-listener access is needed. Full media-card validation remains untested while the owner leaves that permission disabled.
+
 ## Visual checks (1920 × 1080)
 1. Launch Glass preview by explicit component; expect photo-only idle state.
 2. Top: single glass ribbon, clock/date left, all five prayer entries and verified source marker in the center, compact weather right. Nothing overlaps, even with a long next-prayer label.

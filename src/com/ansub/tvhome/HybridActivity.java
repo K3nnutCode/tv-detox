@@ -547,13 +547,25 @@ public final class HybridActivity extends Activity {
         captionParams.topMargin = px(6);
         tile.addView(caption, captionParams);
 
-        tile.setOnFocusChangeListener((v, focused) -> {
+        final boolean glassPreview =
+                "com.ansub.tvhome.hybrid.glass.preview".equals(getPackageName());
+        final Runnable updateFocusAppearance = () -> {
+            // A dialog owns focus in its own window, while Android retains
+            // the selected tile underneath. Glass shows only the active ring.
+            boolean focused = tile.hasFocus() && (!glassPreview || tile.hasWindowFocus());
             tile.setBackground(focused ? focusedGlass : restingGlass);
             // One rounded highlight only; original TV banner stays unchanged.
             tile.setForeground(focused ? focusRing : null);
             tile.setElevation(focused ? px(10) : 0);
             tile.animate().scaleX(focused ? 1.045f : 1f)
                     .scaleY(focused ? 1.045f : 1f).setDuration(175).start();
+        };
+        if (glassPreview) {
+            tile.getViewTreeObserver().addOnWindowFocusChangeListener(
+                    hasWindowFocus -> updateFocusAppearance.run());
+        }
+        tile.setOnFocusChangeListener((v, focused) -> {
+            updateFocusAppearance.run();
             if (focused) showSelection(pkg, label);
         });
         tile.setOnClickListener(v -> {
