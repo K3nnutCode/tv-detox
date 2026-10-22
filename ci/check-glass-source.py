@@ -17,6 +17,7 @@ def require(condition, message):
 manifest = ET.parse(root / "AndroidManifest-hybrid-glass-preview.xml").getroot()
 android = "{http://schemas.android.com/apk/res/android}"
 require(manifest.attrib["package"] == "com.ansub.tvhome.hybrid.glass.preview", "Glass identity")
+require(manifest.get(android + "versionCode") == "111", "identifiable performance candidate")
 require({p.get(android + "name") for p in manifest.findall("uses-permission")} == {
     "android.permission.INTERNET", "android.permission.READ_EXTERNAL_STORAGE"
 }, "no new Glass permission")

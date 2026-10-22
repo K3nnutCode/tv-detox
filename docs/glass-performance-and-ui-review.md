@@ -59,18 +59,32 @@ a performance gain. Keep full-bleed CENTER_CROP, 60 s rotation, the 1050 ms manu
 fade, worker decoding/prewarm, native icons, exact source IDs, Settings scan code
 233, timetable and opt-in media behavior.
 
+The candidate is version **1.1.1-glass-preview / code 111** to distinguish its
+captures from the original code-110 baseline. Only Glass's version fields change;
+no intent, permission, signing or other manifest is changed.
+
 The existing Glass emulator CI entry point now invokes the new source guards
 and focus-clock tests. It refuses physical-device serials and verifies QEMU.
 Synthetic landscape/portrait PNGs exercise two real completed photo fades with
 animator scale zero; counters and screenshots remain emulator diagnostics.
-Workflow definitions, manifests, permissions, dependencies and signing code are
-unchanged. A build is not a TCL performance result.
+Workflow definitions, manifest intents/permissions, dependencies and signing
+code are unchanged. A build is not a TCL performance result.
 
 On-device acceptance requires matched before/after workloads and no PSS or jank
 regression. Repeat a longer idle window as well as the initial two fades; repeat
 navigation with 30 visibly changing selections and record the raw counters.
 Record identical photo sets privately without putting their names or images in
 the repo. Current owner TV installation and follow-up captures are pending.
+
+The owner-side [capture helper](collect-glass-profile.sh) accepts the connected
+ADB serial as an argument and verifies the expected Glass versionCode (111 by
+default). It uses only the permitted package reads, counter resets, fade logs
+and `am start -W`; it does not force-stop or update anything. It captures the
+initial 135 s followed by a controlled 225 s continuation, then manual navigation
+and the app cycle. On exit it automatically combines its text files into one
+`Downloads/glass-profile.<id>.txt`, including partial results on interruption.
+This removes the earlier manual ZIP/combination step. Launch state remains as
+reported; a HOT start must not be compared as cold-start improvement.
 
 ## 10-foot readability audit — proposals, no visual layout changes applied
 

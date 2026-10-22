@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.ansub.tvhome.hybrid.glass.preview"
-    android:versionCode="110" android:versionName="1.1.0-glass-preview">
+    android:versionCode="111" android:versionName="1.1.1-glass-preview">
     <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="30"/>
     <queries>
         <intent><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LEANBACK_LAUNCHER"/></intent>
