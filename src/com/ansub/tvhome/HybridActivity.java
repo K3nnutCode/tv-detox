@@ -457,11 +457,10 @@ public final class HybridActivity extends Activity {
         browseEntry.setVisibility(View.GONE);
         browseView = new GlassBrowseView(this, scale, this::closeBrowse,
                 this::showTvInputSelector, this::openTvSettings);
-        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(-1, -1);
+        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(-1, px(768));
         lp.leftMargin = px(54);
         lp.rightMargin = px(54);
         lp.topMargin = px(228);
-        lp.bottomMargin = px(18);
         stageView.addView(browseView, lp);
         browseView.focusFirstCard();
         browseView.refreshSavedPlayback();

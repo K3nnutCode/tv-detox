@@ -66,7 +66,9 @@ final class GlassBrowseView extends FrameLayout {
         this.host = host;
         this.scale = scale;
         setContentDescription("Glass Browse");
-        setBackground(surface(0xF2E7EDF2, 0xEADAE4ED, 30, 0xBFFFFFFF));
+        // Keep photos visible through a light readability layer; avoid the
+        // large, nearly opaque white panel seen in the first TCL screenshot.
+        setBackground(surface(0xCFE7EDF2, 0xBFDCE5ED, 28, 0x60FFFFFF));
         setClipChildren(false);
         setClipToPadding(false);
         addView(text("Browse", 48, 0xFF182634, true), at(36, 18, 700, 66));
@@ -86,8 +88,8 @@ final class GlassBrowseView extends FrameLayout {
         for (int i = 0; i < Math.min(3, apps.size()); i++) {
             View card = card(apps.get(i), i == 0);
             card.setNextFocusUpId(home.getId());
-            addView(card, i == 0 ? at(36, 150, 970, 398)
-                    : at(1030 + (i - 1) * 386, 150, 360, 398));
+            addView(card, i == 0 ? at(36, 150, 970, 348)
+                    : at(1030 + (i - 1) * 386, 150, 360, 348));
             if (i == 0) initialFocus = card;
         }
         if (apps.isEmpty()) {
@@ -96,13 +98,13 @@ final class GlassBrowseView extends FrameLayout {
             initialFocus = home;
         }
 
-        addView(text("YOUR APPS", 19, 0xFF43596E, true), at(40, 579, 800, 34));
+        addView(text("YOUR APPS", 19, 0xFF43596E, true), at(40, 527, 800, 34));
         HorizontalScrollView scroll = new HorizontalScrollView(host);
         scroll.setHorizontalScrollBarEnabled(false);
         scroll.setClipToPadding(false);
-        scroll.setPadding(px(12), px(12), px(12), px(12));
-        scroll.setBackground(surface(0xDFFFFFFF, 0xBFEAF0F5, 30, 0xEFFFFFFF));
-        scroll.setElevation(px(5));
+        scroll.setPadding(px(12), px(10), px(12), px(10));
+        scroll.setBackground(surface(0xCFFFFFFF, 0xAFEAF0F5, 26, 0x90FFFFFF));
+        scroll.setElevation(px(3));
         LinearLayout shelf = new LinearLayout(host);
         shelf.setGravity(Gravity.CENTER_VERTICAL);
         shelf.setPadding(px(10), 0, px(10), 0);
@@ -110,25 +112,25 @@ final class GlassBrowseView extends FrameLayout {
             LinearLayout tile = new LinearLayout(host);
             tile.setOrientation(LinearLayout.VERTICAL);
             tile.setGravity(Gravity.CENTER);
-            tile.setPadding(px(10), px(7), px(10), px(7));
+            tile.setPadding(px(10), px(6), px(10), px(6));
             ImageView icon = new ImageView(host);
             icon.setImageDrawable(copy(app.icon));
             icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
-            tile.addView(icon, new LinearLayout.LayoutParams(px(64), px(64)));
+            tile.addView(icon, new LinearLayout.LayoutParams(px(56), px(56)));
             TextView label = text(app.label, 19, 0xFF233749, true);
             label.setGravity(Gravity.CENTER);
             label.setSingleLine(true);
             label.setEllipsize(TextUtils.TruncateAt.END);
-            tile.addView(label, new LinearLayout.LayoutParams(-1, px(32)));
-            focusable(tile, "Browse app: " + app.label, () -> open(app));
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(px(210), px(118));
+            tile.addView(label, new LinearLayout.LayoutParams(-1, px(28)));
+            focusable(tile, "Browse app: " + app.label, () -> open(app), true);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(px(198), px(102));
             lp.setMargins(px(5), 0, px(5), 0);
             shelf.addView(tile, lp);
         }
         scroll.addView(shelf);
-        addView(scroll, at(36, 620, 1740, 152));
+        addView(scroll, at(36, 568, 1740, 126));
         addView(text("Back returns to photos  ·  Select an app to open it", 19,
-                0xFF526476, false), at(42, 787, 1700, 30));
+                0xFF526476, false), at(42, 710, 1700, 30));
     }
 
     void focusFirstCard() { if (initialFocus != null) initialFocus.requestFocus(); }
@@ -170,25 +172,25 @@ final class GlassBrowseView extends FrameLayout {
     private View card(App app, boolean featured) {
         LinearLayout card = new LinearLayout(host);
         card.setOrientation(LinearLayout.VERTICAL);
-        card.setPadding(px(16), px(16), px(16), px(12));
+        card.setPadding(px(16), px(16), px(16), px(10));
         card.setClipToOutline(true);
         ImageView art = new ImageView(host);
-        art.setBackground(surface(0xFFDAE3EC, 0xFFEDF2F6, 19, 0x00FFFFFF));
+        art.setBackground(surface(0x40DAE3EC, 0x30EDF2F6, 19, 0x00FFFFFF));
         art.setClipToOutline(true);
         art.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        art.setPadding(px(28), px(22), px(28), px(22));
+        art.setPadding(px(48), px(32), px(48), px(32));
         art.setImageDrawable(copy(app.banner != null ? app.banner : app.icon));
-        card.addView(art, new LinearLayout.LayoutParams(-1, px(254)));
-        TextView title = text(app.label, featured ? 32 : 28, 0xFF1D3041, true);
+        card.addView(art, new LinearLayout.LayoutParams(-1, px(214)));
+        TextView title = text(app.label, featured ? 30 : 28, 0xFF1D3041, true);
         title.setMaxLines(2);
         title.setEllipsize(TextUtils.TruncateAt.END);
         title.setPadding(px(8), px(10), px(8), 0);
-        card.addView(title, new LinearLayout.LayoutParams(-1, px(82)));
+        card.addView(title, new LinearLayout.LayoutParams(-1, px(80)));
         TextView detail = text("Open " + app.label, 20, 0xFF4A6177, false);
         detail.setSingleLine(true);
         detail.setEllipsize(TextUtils.TruncateAt.END);
         detail.setPadding(px(8), 0, px(8), 0);
-        card.addView(detail, new LinearLayout.LayoutParams(-1, px(30)));
+        card.addView(detail, new LinearLayout.LayoutParams(-1, px(28)));
         cards.add(new Card(app, art, title, detail));
         focusable(card, "Browse featured: " + app.label, () -> open(app));
         return card;
@@ -199,7 +201,7 @@ final class GlassBrowseView extends FrameLayout {
         final int token = ++mediaGeneration;
         for (Card card : cards) {
             card.art.setScaleType(ImageView.ScaleType.FIT_CENTER);
-            card.art.setPadding(px(28), px(22), px(28), px(22));
+            card.art.setPadding(px(48), px(32), px(48), px(32));
             card.art.setImageDrawable(copy(card.app.banner != null ? card.app.banner : card.app.icon));
             card.title.setText(card.app.label);
             card.detail.setText("Open " + card.app.label);
@@ -260,17 +262,24 @@ final class GlassBrowseView extends FrameLayout {
     }
 
     private void focusable(View view, String description, Runnable action) {
+        focusable(view, description, action, false);
+    }
+
+    private void focusable(View view, String description, Runnable action, boolean shelfItem) {
         view.setId(View.generateViewId());
         view.setContentDescription(description);
         view.setFocusable(true);
         view.setClickable(true);
-        Drawable idle = surface(0xDCFFFFFF, 0xBFEAF0F6, 22, 0x9FFFFFFF);
+        // The shelf supplies one common resting surface, instead of nesting
+        // a white outlined box under every original application icon.
+        Drawable idle = shelfItem ? surface(0x00FFFFFF, 0x00FFFFFF, 22, 0x00FFFFFF)
+                : surface(0xBFFFFFFF, 0x9FEAF0F6, 22, 0x40FFFFFF);
         Drawable focus = surface(0xFFF7FCFF, 0xFFE0F0FF, 22, 0xFF3D789E);
         view.setBackground(idle);
         Runnable appearance = () -> {
             boolean selected = view.hasFocus() && view.hasWindowFocus();
             view.setBackground(selected ? focus : idle);
-            view.setElevation(selected ? px(8) : px(2));
+            view.setElevation(selected ? px(6) : px(shelfItem ? 0 : 1));
             view.animate().scaleX(selected ? 1.025f : 1f)
                     .scaleY(selected ? 1.025f : 1f).setDuration(175).start();
         };
