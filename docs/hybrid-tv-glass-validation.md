@@ -55,3 +55,12 @@ New Glass-only crossfade implementation uses `View.postOnAnimation()` and `Syste
 6. If photo switch still hard-cuts or log completion absent, stop promotion and investigate view scheduling/visibility and GPU behavior.
 
 No default Home change, app uninstall outside the Glass preview, firmware tweak or permission reset on other apps is permitted for this test.
+
+## Owner-requested universal full-bleed wallpaper acceptance (22 Oct 2026)
+- On the new **Glass preview only**, `TvWallpaperView.Slide.photo` always uses `ImageView.ScaleType.CENTER_CROP`. No separate blurred backdrop or `FIT_CENTER` logic.
+- Choose **two visibly different landscape** family pictures, **a 4:3** picture and **a portrait** photo from `Pictures/TVWallpapers`. Let each display without touching the remote.
+- Every photo must visually reach **all four edges** of the TV, without colored side bars, stretching, square image inside the frame or residual blurred fill. Photo subjects and aspect proportions must remain natural. Portrait and 4:3 edges **will be cropped intentionally**; confirm whether the crop is acceptable.
+- Between photos, verify a **real ~1.05-second crossfade**, not the original hard cut; use `adb logcat -d -s HybridWallpaperFade:I` to confirm a start and completion event around 1050ms. The owner previously observed **1061ms and 64 animation callbacks** with the fixed preview.
+- Check first photo immediately after launching Glass, then at least two 60-second transitions. The clock, prayer times, weather, app dock and playback continue to render over the wallpaper.
+- If the frame is still inset on a particular photo, inspect whether **borders are baked into the image itself**, because the renderer cannot remove them without content-aware cropping.
+- Do not install/uninstall any stable Home package, alter launcher defaults or replace personal files. For optional graphics sampling, clear then collect `dumpsys gfxinfo` after visually confirming actual photo fades.
