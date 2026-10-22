@@ -9,6 +9,8 @@ This draft runs on the user's TCL Android TV 11. **Do not run any HOME switch, u
 - No notification-listener access is needed. Full media-card validation remains untested while the owner leaves that permission disabled.
 
 ## Separate Browse screen: validation gates
+Owner checkpoint for `e1dcca1`: all three GitHub workflows passed, including the dedicated Browse emulator test. After an explicitly approved update, the owner supplied a TCL Browse screenshot and confirmed card/shelf navigation, app launching and Back to Photo Home. These checks pass. Visual refinement/sign-off and the other device scenarios below remain open; screenshot evidence stays private.
+
 1. With notification-listener access still disabled, confirm Photo Home retains its ribbon, six-slot dock, photos and idle behavior. Down enters the dock; Up returns to idle; a further Up opens Browse only in Glass Preview.
 2. Browse keeps the real information ribbon above a light panel: original app artwork, one wide and up to two smaller cards, scrollable app shelf, Photo Home/Inputs/Settings buttons. No fake movie rows or missing-permission playback slabs appear. Fewer installed apps must not create fake cards.
 3. Check D-pad movement between featured cards, header buttons and every shelf item; long labels truncate safely. Opening a real app must work. Returning to Glass should retain Browse and restore its focus.
