@@ -2,6 +2,16 @@
 
 This draft runs on the user's TCL Android TV 11. **Do not run any HOME switch, uninstall production apps, or change TV firmware** as part of visual/performance testing.
 
+## Current device baseline: Google TV
+The owner switched default Home back to Google TV with apps retained, without a
+factory reset, and requests a fresh start. Preserve Google TV as the current
+default/fallback and reuse installed apps. Exact Glass version, photo access and
+current system tweaks still need verification. Follow the
+[fresh-start guide](glass-fresh-start.md) before another
+deployment or performance comparison. Below are historical validation results;
+new Home-button checks should return to the current Google TV default. No old
+performance result is a fresh baseline.
+
 ## Measured performance candidate and UI audit
 See [the measured review](glass-performance-and-ui-review.md) for the new private
 owner-capture analysis, before/after status, Glass-only compositing and self-timed

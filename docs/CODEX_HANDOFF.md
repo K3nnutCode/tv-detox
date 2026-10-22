@@ -7,7 +7,8 @@
 - **Active development branch:** `feature/hybrid-tv-glass-v1.1-preview`
 - **Active draft PR:** https://github.com/K3nnutCode/tv-detox/pull/10
 - **Functional dependency:** draft PR #9, branch `feature/hybrid-youtube-preview-v1.0.1`. Do not assume it was merged.
-- The working production Home app is `com.ansub.tvhome.hybrid.stable` (**v1.0**, default launcher). Don't change it.
+- **Latest owner update: switched default Home back to Google TV, apps retained, no factory reset; start validation fresh.** Preserve Google TV as default/fallback and reuse installed apps. Exact Glass version, photo access, prior system tweaks and current ADB connectivity still need verification; do not reinstall merely to restart validation.
+- Historical production Home: `com.ansub.tvhome.hybrid.stable` (**v1.0**, previously default). Keep it untouched if installed; do not restore its HOME role automatically.
 - Separate functional preview: `com.ansub.tvhome.hybrid.youtube.preview` (**v1.0.1**).
 - Glass design preview: `com.ansub.tvhome.hybrid.glass.preview` (**v1.1**, not a HOME candidate). Its test APK is independently/disposably signed.
 - Read root `AGENTS.md`, `docs/hybrid-tv-glass-design.md`, `docs/hybrid-tv-glass-validation.md`, and current PR discussion/comments. Commit history on the Glass branch records each refinement and CI build.
@@ -33,6 +34,10 @@ A premium but very lightweight Android TV launcher inspired by Apple TV's clarit
 7. Playback permissions: uninstall/reinstall Glass preview resets its own notification-listener authorization and saved snapshots. `Opt-in media session access required` is expected until the user explicitly authorizes the **broad** notification listener; not automatically a bug. Don't grant it silently or suggest copying privacy-sensitive media data to the repo.
 
 ## Performance evidence, properly qualified
+These are historical results from the previous device configuration. They do
+not establish performance on the current Google TV setup. Collect a fresh
+baseline before claiming a gain; do not silently restore earlier system tweaks.
+
 - Separate rapid remote navigation run: **456 frames, 1 janky (0.22%), p99 11ms**, but 57 high-input-latency flags; counters do not equal tangible remote delay.
 - 15-minute same-process memory snapshots: total PSS **96.45 MiB down to 77.41 MiB**, no monotonic increase in that interval; not proof of universal leak-freedom.
 - Early wallpaper-only logs had very low frame counts and apparently 0% jank, but **the fade was actually skipping** on the TCL. Owner corrected this. Do not use those runs to claim successful animated 60 FPS wallpaper rendering.
@@ -40,6 +45,13 @@ A premium but very lightweight Android TV launcher inspired by Apple TV's clarit
 - Some Skia OpenGL GPU timing reports show `4950ms` sentinel buckets; treat these as unreliable. Variable purgeable GPU texture-cache sizes are not direct evidence of leaks.
 
 ## Exact next actions
+Begin with the [fresh Google TV validation guide](glass-fresh-start.md). Confirm
+the current installed package state and access before choosing a Glass update
+path. Do not assume a factory reset or remove existing apps. Keep the code-111
+candidate and settled design decisions; a fresh device baseline does not require
+rewriting the project. Older statements below about Home returning to Stable
+describe previous tests; current Home should return to Google TV.
+
 Current owner-requested measured work is tracked in
 [Glass performance and UI review](glass-performance-and-ui-review.md). The owner
 subsequently waived phase approval prompts. The measured native/graphics growth

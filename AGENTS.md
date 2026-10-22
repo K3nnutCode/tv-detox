@@ -3,7 +3,8 @@
 Read `docs/CODEX_HANDOFF.md` before planning changes. For UI requirements and regression gates also read `docs/hybrid-tv-glass-design.md` and `docs/hybrid-tv-glass-validation.md`.
 
 ## Non-negotiable safety
-- This repo contains a user's **working TCL Android TV Home launcher**. Keep `com.ansub.tvhome.hybrid.stable` unchanged and default.
+- The owner switched the TCL's default Home back to **Google TV**, with apps retained (no factory reset), and requests a fresh validation start. Preserve the current default Home. Reuse installed apps; confirm exact Glass version and current access before testing.
+- Keep any installed `com.ansub.tvhome.hybrid.stable` unchanged. Its earlier default-Home role is historical; do not restore it or disable Google TV automatically.
 - Do **not** merge PR #10 or PR #9, modify main, alter signing keys, change the Android HOME role, disable OEM launchers/system apps, uninstall other variants, or run ADB against the user's TV without their **explicit approval**.
 - Work only on `feature/hybrid-tv-glass-v1.1-preview` or a separate review branch from it. It depends on `feature/hybrid-youtube-preview-v1.0.1` (PR #9); PR #10 is a draft.
 - Glass is its own installable package `com.ansub.tvhome.hybrid.glass.preview`, with **no HOME intent** and disposable signing for test builds. Other previews must remain independent.

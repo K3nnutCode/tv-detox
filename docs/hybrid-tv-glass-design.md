@@ -45,7 +45,7 @@ The owner confirmed initial Browse navigation, app launching and Back, then auth
 - Media artwork: card only, approximately 16:9 viewport, never drawn to the fullscreen stage.
 
 ## Constraints / regression gates
-- Preview is never a HOME candidate; original v1.0 remains the default.
+- Preview is never a HOME candidate; preserve the owner's current default Home (now Google TV). The earlier v1.0 default is historical.
 - Stremio and YouTube read only Android-authorized media session data and keep last-seen snapshots; playback may not provide duration/artwork.
 - TCL Settings physical BT_RC813_MA scan code 233 and native Settings dock action still work.
 - Inputs chooser enumerates published TV-input IDs and reports honest connected/standby/disconnected/unknown state; no guessed HDMI IDs.
