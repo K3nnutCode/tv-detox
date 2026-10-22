@@ -72,7 +72,7 @@ final class GlassBrowseView extends FrameLayout {
         setClipChildren(false);
         setClipToPadding(false);
         addView(text("Browse", 48, 0xFF182634, true), at(36, 18, 700, 66));
-        addView(text("Your apps, together", 23, 0xFF526476, false), at(38, 88, 800, 36));
+        addView(text("Your apps, together", 23, 0xFF293E51, false), at(38, 88, 800, 36));
         TextView home = button("Photo Home", photoHome);
         addView(home, at(1178, 34, 224, 62));
         TextView inputButton = button("Inputs", inputs);
@@ -98,7 +98,7 @@ final class GlassBrowseView extends FrameLayout {
             initialFocus = home;
         }
 
-        addView(text("YOUR APPS", 19, 0xFF43596E, true), at(40, 527, 800, 34));
+        addView(text("YOUR APPS", 19, 0xFF293E51, true), at(40, 527, 800, 34));
         HorizontalScrollView scroll = new HorizontalScrollView(host);
         scroll.setHorizontalScrollBarEnabled(false);
         scroll.setClipToPadding(false);
@@ -130,7 +130,7 @@ final class GlassBrowseView extends FrameLayout {
         scroll.addView(shelf);
         addView(scroll, at(36, 568, 1740, 126));
         addView(text("Back returns to photos  ·  Select an app to open it", 19,
-                0xFF526476, false), at(42, 710, 1700, 30));
+                0xFF293E51, false), at(42, 710, 1700, 30));
     }
 
     void focusFirstCard() { if (initialFocus != null) initialFocus.requestFocus(); }
@@ -186,7 +186,7 @@ final class GlassBrowseView extends FrameLayout {
         title.setEllipsize(TextUtils.TruncateAt.END);
         title.setPadding(px(8), px(10), px(8), 0);
         card.addView(title, new LinearLayout.LayoutParams(-1, px(80)));
-        TextView detail = text("Open " + app.label, 20, 0xFF4A6177, false);
+        TextView detail = text("Open " + app.label, 20, 0xFF3C5266, false);
         detail.setSingleLine(true);
         detail.setEllipsize(TextUtils.TruncateAt.END);
         detail.setPadding(px(8), 0, px(8), 0);
