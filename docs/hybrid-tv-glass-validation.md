@@ -36,3 +36,22 @@ Glass preview package: `com.ansub.tvhome.hybrid.glass.preview`. To remove **only
 adb uninstall com.ansub.tvhome.hybrid.glass.preview
 ```
 Original `com.ansub.tvhome.hybrid.stable`, `com.ansub.tvhome.hybrid.youtube.preview`, and Home Photos remain untouched.
+
+## Photo fade acceptance — correction from actual TCL observation (22 Oct 2026)
+The owner reported **instant/snappy photo switching with no visible fade**. The previously measured 0 janky frames over only 12–13 frames in ~150 s were **not proof of a successful crossfade**. In fact, such tiny frame counts are consistent with no continuous opacity animation happening. One possible cause is the TCL's system `animator_duration_scale` being set to 0, but this has **not been confirmed**.
+
+New Glass-only crossfade implementation uses `View.postOnAnimation()` and `SystemClock.uptimeMillis()` to manually advance the incoming slide's alpha over **1050 ms** (smoothstep), independent of `ViewPropertyAnimator` global duration scale. It does **not** change the TV's global developer settings; photo aspect handling, 60 s timing, off-thread decode and texture prewarm remain unchanged.
+
+### Verify on the owner TV (requires the *new* independent Glass preview APK)
+1. In Git Bash, first optionally inspect the system setting with `adb shell settings get global animator_duration_scale` (read-only; zero means standard property animations can be instant).
+2. Launch new Glass preview. Two or more photos must exist under `Pictures/TVWallpapers`; keep activity visible and do not press Home.
+3. Wait for a photo change and **watch for an obvious approximately one-second opacity crossfade**, not a hard cut.
+4. Confirm from read-only logcat:
+   ```
+   adb logcat -d -s HybridWallpaperFade:I
+   ```
+   A successful transition should log `Starting photo crossfade: 1050ms` and `Photo crossfade complete: [elapsed]ms, [frames] frames`. About 45–70 callbacks is typical on a healthy 60 Hz device, but refresh/frame availability may vary. A single start without completion is a regression.
+5. Then collect **a new post-fix** slideshow-only `dumpsys gfxinfo` after resetting and watching at least two crossfades. Expect more rendered frames than the previous 12–13-frame snapshot, because the fade actually runs. Evaluate new jank rates; do not compare the old 0% as a true fade baseline.
+6. If photo switch still hard-cuts or log completion absent, stop promotion and investigate view scheduling/visibility and GPU behavior.
+
+No default Home change, app uninstall outside the Glass preview, firmware tweak or permission reset on other apps is permitted for this test.
