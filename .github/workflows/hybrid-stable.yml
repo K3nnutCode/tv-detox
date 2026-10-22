@@ -220,6 +220,12 @@ jobs:
           grep -Fq 'new HybridWeatherWidget(this, scale, true)' "$SRC"
           grep -Fq 'heroArtwork.setImageBitmap(' "$SRC"
           grep -Fq 'View ribbon = new View(this)' "$SRC"
+          # Phase 5: installed-app icons fit a single consistent glass dock.
+          grep -Fq 'pm.getApplicationIcon(pkg)' "$SRC"
+          grep -Fq 'new LinearLayout.LayoutParams(px(68), px(68))' "$SRC"
+          grep -Fq 'caption.setSingleLine(true)' "$SRC"
+          grep -Fq 'dockSurface(pkg, false)' "$SRC"
+          grep -Fq 'new LineIcon("inputs".equals(pkg)' "$SRC"
           grep -Fq 'showIdle(); // Utility navigation stays quiet' "$SRC"
           # Android 11 photo upload prewarm remains off the UI thread.
           grep -Fq 'result.prepareToDraw();' "$SRC"
