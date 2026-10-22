@@ -35,6 +35,8 @@ import android.util.Log;
 import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.InputDevice;
+import android.view.Window;
+import android.view.WindowManager;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
@@ -82,6 +84,7 @@ public final class HybridActivity extends Activity {
     private final LinearLayout[] prayerTiles = new LinearLayout[5];
     private ProgressBar playbackProgress;
     private FrameLayout hero;
+    private boolean featuredPlaybackAvailable;
     private final Runnable greetingTick = new Runnable() {
         @Override public void run() {
             if (!active) return;
@@ -97,6 +100,12 @@ public final class HybridActivity extends Activity {
         }
     };
     private FrameLayout stageView;
+    private View infoRibbon, browseDim;
+    private LinearLayout clockPanel;
+    private TextClock clockTime;
+    private LinearLayout homeDock;
+    private TextView browseEntry;
+    private GlassBrowseView browseView;
     private HybridWeatherWidget weather;
     private boolean active;
     private static long lastListenerRebindElapsed;
@@ -111,32 +120,46 @@ public final class HybridActivity extends Activity {
         stageView = stage;
         stage.setBackgroundColor(0xFF0A1222);
 
-        // Two crossfading frames preserve EACH photo's original aspect ratio.
-        // Landscape uses center-crop, portrait/4:3 gets a blurred fill behind
-        // its fully visible fit-centered image. Never stretch a family photo.
+        // Two crossfading frames fill the entire TV with CENTER_CROP for
+        // every aspect ratio, never stretching or letterboxing family photos.
         photo = new TvWallpaperView(this);
         stage.addView(photo, new FrameLayout.LayoutParams(-1,-1));
 
 
         View shade = new View(this);
         shade.setBackground(new GradientDrawable(GradientDrawable.Orientation.BOTTOM_TOP,
-                new int[]{0xCD07101B, 0x55091322, 0x00000000}));
-        FrameLayout.LayoutParams scrim = new FrameLayout.LayoutParams(-1, px(730), Gravity.BOTTOM);
+                new int[]{0x890C1320, 0x1F0D1723, 0x00000000}));
+        FrameLayout.LayoutParams scrim = new FrameLayout.LayoutParams(-1, px(610), Gravity.BOTTOM);
         stage.addView(shade, scrim);
 
+
+        // One quiet shared glass ribbon replaces three visually heavy panels.
+        // Individual information sections have no separate tinted card backing.
+        View ribbon = new View(this);
+        infoRibbon = ribbon;
+        ribbon.setBackground(round(0xA626343F, 30, 0x38FFFFFF));
+        stage.addView(ribbon, pos(px(54), px(44), px(1812), px(160)));
+        for (int x : new int[]{405, 1435}) {
+            View separator = new View(this);
+            separator.setBackgroundColor(0x38FFFFFF);
+            stage.addView(separator, pos(px(x), px(67), px(1), px(111)));
+        }
+
         LinearLayout clock = new LinearLayout(this);
+        clockPanel = clock;
         clock.setOrientation(LinearLayout.VERTICAL);
         clock.setGravity(Gravity.CENTER_VERTICAL);
-        clock.setPadding(px(26), px(12), px(18), px(12));
-        greetingView = text("GOOD NIGHT", 22, 0xCCFFFFFF, false);
+        clock.setPadding(px(6), px(5), px(9), px(5));
+        greetingView = text("GOOD NIGHT", 16, 0xD4FFFFFF, false);
         updateGreeting();
         clock.addView(greetingView);
         TextClock time = new TextClock(this);
+        clockTime = time;
         time.setFormat12Hour("h:mm");
         time.setFormat24Hour("HH:mm");
         time.setTimeZone("Asia/Brunei");
         time.setTextColor(Color.WHITE);
-        time.setTextSize(TypedValue.COMPLEX_UNIT_PX, px(118));
+        time.setTextSize(TypedValue.COMPLEX_UNIT_PX, px(76));
         time.setIncludeFontPadding(false);
         clock.addView(time);
         TextClock date = new TextClock(this);
@@ -144,25 +167,24 @@ public final class HybridActivity extends Activity {
         date.setFormat24Hour("EEEE, d MMMM");
         date.setTimeZone("Asia/Brunei");
         date.setTextColor(0xDDFFFFFF);
-        date.setTextSize(TypedValue.COMPLEX_UNIT_PX, px(24));
+        date.setTextSize(TypedValue.COMPLEX_UNIT_PX, px(19));
         clock.addView(date);
-        clock.setBackground(round(0x5224344C, 23, 0x25FFFFFF));
-        stage.addView(clock, pos(px(60), px(44), px(380), -2));
+        stage.addView(clock, pos(px(82), px(52), px(298), -2));
 
         // Live current/next prayer panel, with immutable local PDI timetable.
         // Outside verified 2026-10 .. 2026-12, deliberately show no times.
         LinearLayout prayers = new LinearLayout(this);
         prayers.setOrientation(LinearLayout.VERTICAL);
-        prayers.setPadding(px(22), px(14), px(22), px(12));
-        prayers.setBackground(round(0xA8182536, 23, 0x45FFFFFF));
+        prayers.setPadding(px(12), px(5), px(12), px(5));
+        // The shared ribbon supplies the glass background.
 
         LinearLayout prayerHeading = new LinearLayout(this);
         prayerHeading.setGravity(Gravity.CENTER_VERTICAL);
         prayerHeading.setOrientation(LinearLayout.HORIZONTAL);
-        TextView prayerTitle = text("☪  WAKTU SOLAT · BRUNEI–MUARA", 25, Color.WHITE, true);
+        TextView prayerTitle = text("☪  WAKTU SOLAT · BRUNEI–MUARA", 20, Color.WHITE, true);
         prayerTitle.setSingleLine(true);
         prayerHeading.addView(prayerTitle, new LinearLayout.LayoutParams(0, -2, 1f));
-        prayerNextView = text("Checking timetable", 19, 0xFFF2D9A1, true);
+        prayerNextView = text("Checking timetable", 18, 0xFFF2D9A1, true);
         prayerNextView.setSingleLine(true);
         prayerNextView.setGravity(Gravity.RIGHT);
         prayerHeading.addView(prayerNextView, new LinearLayout.LayoutParams(0, -2, 1f));
@@ -171,18 +193,18 @@ public final class HybridActivity extends Activity {
         LinearLayout prayerRow = new LinearLayout(this);
         prayerRow.setOrientation(LinearLayout.HORIZONTAL);
         prayerRow.setGravity(Gravity.CENTER);
-        LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(-1, px(87));
-        rp.topMargin = px(9);
+        LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(-1, px(70));
+        rp.topMargin = px(3);
         prayers.addView(prayerRow, rp);
         for (int i = 0; i < 5; i++) {
             LinearLayout cell = new LinearLayout(this);
             cell.setOrientation(LinearLayout.VERTICAL);
             cell.setGravity(Gravity.CENTER);
-            cell.setPadding(px(4), px(5), px(4), px(5));
-            TextView name = text(PrayerSchedule2026.PRAYERS[i], 21, 0xFFE5EBF5, false);
+            cell.setPadding(px(3), px(1), px(3), px(1));
+            TextView name = text(PrayerSchedule2026.PRAYERS[i], 18, 0xFFE5EBF5, false);
             name.setGravity(Gravity.CENTER);
             cell.addView(name);
-            TextView value = text("--:--", 28, Color.WHITE, true);
+            TextView value = text("--:--", 24, Color.WHITE, true);
             value.setGravity(Gravity.CENTER);
             LinearLayout.LayoutParams vp = new LinearLayout.LayoutParams(-1, -2);
             vp.topMargin = px(2);
@@ -197,22 +219,22 @@ public final class HybridActivity extends Activity {
 
         LinearLayout prayerFooter = new LinearLayout(this);
         prayerFooter.setOrientation(LinearLayout.HORIZONTAL);
-        prayerPeriodView = text("", 17, 0xFFF0D9A9, true);
+        prayerPeriodView = text("", 16, 0xFFF0D9A9, true);
         prayerPeriodView.setSingleLine(true);
         prayerFooter.addView(prayerPeriodView, new LinearLayout.LayoutParams(0, -2, 1f));
-        prayerSourceView = text("2026 PDI · Offline · Asia/Brunei", 16, 0xFFD2DAE6, false);
+        prayerSourceView = text("2026 PDI · Offline · Asia/Brunei", 15, 0xFFD2DAE6, false);
         prayerSourceView.setGravity(Gravity.RIGHT);
         prayerSourceView.setSingleLine(true);
         prayerFooter.addView(prayerSourceView, new LinearLayout.LayoutParams(0, -2, 1f));
         prayers.addView(prayerFooter);
-        stage.addView(prayers, pos(px(465), px(44), px(890), -2));
+        stage.addView(prayers, pos(px(430), px(52), px(980), -2));
         updatePrayerPanel();
 
-        weather = new HybridWeatherWidget(this, scale);
-        weather.setBackground(round(0x8F162739, 24, 0x30FFFFFF));
-        FrameLayout.LayoutParams wp = new FrameLayout.LayoutParams(px(455), -2, Gravity.TOP | Gravity.RIGHT);
-        wp.topMargin = px(44);
-        wp.rightMargin = px(60);
+        weather = new HybridWeatherWidget(this, scale, true);
+        weather.setBackgroundColor(Color.TRANSPARENT);
+        FrameLayout.LayoutParams wp = new FrameLayout.LayoutParams(px(380), -2, Gravity.TOP | Gravity.RIGHT);
+        wp.topMargin = px(57);
+        wp.rightMargin = px(85);
         stage.addView(weather, wp);
 
         // FEATURED HERO: reference layout at 1920x1080.
@@ -223,7 +245,7 @@ public final class HybridActivity extends Activity {
         // and bottom. Instead, position a near-16:9 viewport on the RIGHT:
         // it keeps the character and most of the composition visible.
         hero = new FrameLayout(this);
-        hero.setBackground(round(0xD1141C2B, 30, 0x62FFFFFF));
+        hero.setBackground(round(0xCE242E39, 30, 0x66FFFFFF));
         hero.setClipToOutline(true);
         // Media art belongs exclusively inside the selected-app hero card.
         // The underlying TvWallpaperView keeps cycling personal photos and is
@@ -232,7 +254,10 @@ public final class HybridActivity extends Activity {
         heroArtwork.setScaleType(ImageView.ScaleType.CENTER_CROP);
         heroArtwork.setVisibility(View.GONE);
         FrameLayout.LayoutParams artParams = new FrameLayout.LayoutParams(
-                px(850), -1, Gravity.RIGHT | Gravity.TOP);
+                px(446), px(260), Gravity.RIGHT | Gravity.CENTER_VERTICAL);
+        artParams.rightMargin = px(21);
+        heroArtwork.setBackground(round(0xFF303A47, 17, 0x20FFFFFF));
+        heroArtwork.setClipToOutline(true);
         hero.addView(heroArtwork, artParams);
 
         // Heavy contrast strictly behind left-side metadata; gentle fade into
@@ -242,81 +267,94 @@ public final class HybridActivity extends Activity {
         heroShade.setBackground(new GradientDrawable(
                 GradientDrawable.Orientation.LEFT_RIGHT,
                 new int[] {
-                    0xFA121A2A,  // opaque behind title / progress
-                    0xEF141B2A,
-                    0xC5161D2A,
-                    0x69151B26,
-                    0x07151B26   // almost transparent over the art at right
+                    0xEF1B2532,  // readable title without a black slab
+                    0xD51B2532,
+                    0x9D1B2532,
+                    0x171B2532,
+                    0x001B2532   // photo and art remain distinct
                 }));
         hero.addView(heroShade, new FrameLayout.LayoutParams(-1, -1));
 
         LinearLayout writing = new LinearLayout(this);
         writing.setOrientation(LinearLayout.VERTICAL);
         writing.setGravity(Gravity.CENTER_VERTICAL);
-        writing.setPadding(px(48), px(34), px(12), px(34));
-        heroEyebrow = text("CONTINUE WATCHING", 25, 0xFFD8E1F0, true);
-        heroEyebrow.setLetterSpacing(0.13f);
+        writing.setPadding(px(30), px(18), px(10), px(18));
+        heroEyebrow = text("CONTINUE WATCHING", 19, 0xFFD8E1F0, true);
+        heroEyebrow.setLetterSpacing(0.085f);
         writing.addView(heroEyebrow);
 
-        heading = text("", 66, Color.WHITE, true);
+        heading = text("", 52, Color.WHITE, true);
         heading.setMaxLines(2);
         heading.setEllipsize(TextUtils.TruncateAt.END);
         LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(-1, -2);
-        titleParams.topMargin = px(33);
+        titleParams.topMargin = px(23);
         writing.addView(heading, titleParams);
 
-        details = text("", 30, 0xFFEBF0F7, false);
+        details = text("", 25, 0xFFEBF0F7, false);
         details.setMaxLines(2);
         details.setEllipsize(TextUtils.TruncateAt.END);
         LinearLayout.LayoutParams detailsParams = new LinearLayout.LayoutParams(-1, -2);
-        detailsParams.topMargin = px(15);
+        detailsParams.topMargin = px(9);
         writing.addView(details, detailsParams);
 
         playbackProgress = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
         playbackProgress.setMax(1000);
         playbackProgress.setProgress(0);
-        playbackProgress.setProgressTintList(ColorStateList.valueOf(0xFF9C7BFA));
+        playbackProgress.setProgressTintList(ColorStateList.valueOf(0xFF94C8FF));
         playbackProgress.setProgressBackgroundTintList(ColorStateList.valueOf(0x70FFFFFF));
         playbackProgress.setVisibility(View.GONE);
-        LinearLayout.LayoutParams trackParams = new LinearLayout.LayoutParams(-1, px(10));
-        trackParams.topMargin = px(30);
+        LinearLayout.LayoutParams trackParams = new LinearLayout.LayoutParams(-1, px(6));
+        trackParams.topMargin = px(20);
         writing.addView(playbackProgress, trackParams);
 
-        footnote = text("", 23, 0xFFE1E6F0, false);
+        footnote = text("", 19, 0xFFE1E6F0, false);
         footnote.setMaxLines(2);
         footnote.setEllipsize(TextUtils.TruncateAt.END);
         LinearLayout.LayoutParams footnoteParams = new LinearLayout.LayoutParams(-1, -2);
-        footnoteParams.topMargin = px(14);
+        footnoteParams.topMargin = px(9);
         writing.addView(footnote, footnoteParams);
 
-        heroAction = text("▶  Press OK to open", 23, Color.WHITE, true);
+        heroAction = text("▶  Press OK to open", 20, Color.WHITE, true);
         heroAction.setGravity(Gravity.CENTER_VERTICAL);
-        heroAction.setPadding(px(24), px(13), px(24), px(13));
-        heroAction.setBackground(round(0xAA452C83, 18, 0xFF9B78ED));
+        heroAction.setPadding(px(18), px(10), px(18), px(10));
+        heroAction.setBackground(round(0x9A345477, 18, 0xA0B1D5FF));
         LinearLayout.LayoutParams actionParams = new LinearLayout.LayoutParams(-2, -2);
-        actionParams.topMargin = px(29);
+        actionParams.topMargin = px(17);
         writing.addView(heroAction, actionParams);
 
         // Keep text within the left half, leaving the right half visually cinematic.
         FrameLayout.LayoutParams textParams = new FrameLayout.LayoutParams(
-                px(730), -1, Gravity.LEFT | Gravity.TOP);
+                px(611), -1, Gravity.LEFT | Gravity.TOP);
         hero.addView(writing, textParams);
         hero.setVisibility(View.GONE);
-        stage.addView(hero, pos(px(68), px(274), px(1310), px(536)));
+        stage.addView(hero, pos(px(74), px(275), px(1065), px(412)));
 
         LinearLayout dock = new LinearLayout(this);
         dock.setOrientation(LinearLayout.HORIZONTAL);
         dock.setGravity(Gravity.CENTER);
         dock.setClipChildren(false);
         dock.setClipToPadding(false);
-        dock.setPadding(px(17), px(20), px(17), px(20));
-        dock.setBackground(round(0xC3172130, 30, 0x4EFFFFFF));
-        FrameLayout.LayoutParams dockParams = new FrameLayout.LayoutParams(-1, px(182), Gravity.BOTTOM);
-        dockParams.leftMargin = px(56);
-        dockParams.rightMargin = px(56);
-        dockParams.bottomMargin = px(56);
+        // A single floating smoked-glass shelf, rather than six banner blocks.
+        // Use cheap translucent fills (not live GPU blur) on Android TV 11.
+        dock.setPadding(px(14), px(12), px(14), px(12));
+        dock.setBackground(round(0xAA263440, 31, 0x4CFFFFFF));
+        FrameLayout.LayoutParams dockParams = new FrameLayout.LayoutParams(-1, px(142), Gravity.BOTTOM);
+        dockParams.leftMargin = px(284);
+        dockParams.rightMargin = px(284);
+        dockParams.bottomMargin = px(55);
         stage.addView(dock, dockParams);
+        homeDock = dock;
         buildDock(dock);
+
+        if ("com.ansub.tvhome.hybrid.glass.preview".equals(getPackageName())) {
+            browseEntry = text("↑  Browse", 23, Color.WHITE, true);
+            browseEntry.setGravity(Gravity.CENTER);
+            browseEntry.setBackground(round(0xB0263440, 20, 0x65FFFFFF));
+            browseEntry.setContentDescription("Open Browse: press Up from idle");
+            browseEntry.setOnClickListener(v -> openBrowse());
+            browseEntry.setFocusable(false);
+            stage.addView(browseEntry, pos(px(1634), px(231), px(230), px(58)));
+        }
 
         setContentView(stage);
         // Preserve the photo-only landing screen until the first remote arrow.
@@ -332,7 +370,8 @@ public final class HybridActivity extends Activity {
      * TCL / Android TV D-pad navigation:
      * DOWN or RIGHT from idle enters the dock; LEFT/RIGHT moves between tiles;
      * UP returns to the unobstructed family-photo view; OK launches focused item.
-     * Never consume BACK, HOME, volume, or other system keys.
+     * Glass-only UP from idle opens Browse; BACK there returns to photos.
+     * Never consume HOME, volume, or other system keys.
      */
     @Override public boolean dispatchKeyEvent(KeyEvent event) {
         final int code = event.getKeyCode();
@@ -385,13 +424,24 @@ public final class HybridActivity extends Activity {
             }
             return true;
         }
+        if (browseView != null) {
+            if (code == KeyEvent.KEYCODE_BACK) {
+                if (event.getAction() == KeyEvent.ACTION_UP && !event.isCanceled()) closeBrowse();
+                return true;
+            }
+            // Browse uses native Android focus search, scroll and OK handling.
+            return super.dispatchKeyEvent(event);
+        }
         if (!direction && !select) return super.dispatchKeyEvent(event);
 
         if (event.getAction() == KeyEvent.ACTION_DOWN) {
             int at = focusedDockIndex();
             if (code == KeyEvent.KEYCODE_DPAD_UP) {
-                if (stageView != null) stageView.requestFocus();
-                showIdle();
+                if (at < 0 && browseEntry != null) openBrowse();
+                else {
+                    if (stageView != null) stageView.requestFocus();
+                    showIdle();
+                }
             } else if (code == KeyEvent.KEYCODE_DPAD_DOWN) {
                 if (at < 0) dockTiles.get(0).requestFocus();
             } else if (code == KeyEvent.KEYCODE_DPAD_LEFT) {
@@ -404,6 +454,48 @@ public final class HybridActivity extends Activity {
             }
         }
         return true; // Also consume key-UP so OK cannot trigger twice.
+    }
+
+    private void openBrowse() {
+        if (browseEntry == null || browseView != null) return;
+        showIdle();
+        homeDock.setVisibility(View.GONE);
+        browseEntry.setVisibility(View.GONE);
+        browseDim = new View(this);
+        browseDim.setBackground(new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,
+                new int[]{0xCA101B2A, 0xA0101B2A, 0x30101B2A}));
+        // Dim the existing photos below the live ribbon, never replace them.
+        stageView.addView(browseDim, 2, new FrameLayout.LayoutParams(-1, -1));
+        browseView = new GlassBrowseView(this, scale, this::closeBrowse,
+                this::showTvInputSelector, this::openTvSettings);
+        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(-1, -1);
+        lp.topMargin = px(208);
+        stageView.addView(browseView, lp);
+        setBrowseRibbon(true);
+        browseView.focusFirstItem();
+    }
+
+    private void closeBrowse() {
+        if (browseView == null) return;
+        stageView.removeView(browseView);
+        browseView = null;
+        stageView.removeView(browseDim);
+        browseDim = null;
+        setBrowseRibbon(false);
+        homeDock.setVisibility(View.VISIBLE);
+        browseEntry.setVisibility(View.VISIBLE);
+        stageView.requestFocus();
+        showIdle();
+    }
+
+    private void setBrowseRibbon(boolean browsing) {
+        infoRibbon.setBackground(browsing ? round(0xBD142539, 26, 0x30FFFFFF)
+                : round(0xA626343F, 30, 0x38FFFFFF));
+        infoRibbon.setLayoutParams(pos(px(54), px(44), px(1812), px(browsing ? 144 : 160)));
+        greetingView.setVisibility(browsing ? View.GONE : View.VISIBLE);
+        clockTime.setTextSize(TypedValue.COMPLEX_UNIT_PX, px(browsing ? 64 : 76));
+        clockPanel.setLayoutParams(pos(px(82), px(browsing ? 64 : 52), px(298), -2));
+        updatePrayerPanel();
     }
 
     private int focusedDockIndex() {
@@ -443,18 +535,20 @@ public final class HybridActivity extends Activity {
             String label = pkg;
             try { label = pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString(); }
             catch (Exception ignored) { }
-            // Use the ORIGINAL banner published by the installed Android TV app.
-            // Do not replace logos/wordmarks with recreated vector branding.
-            Drawable banner = null;
-            try { banner = pm.getActivityBanner(intent); } catch (Exception ignored) { }
-            if (banner == null) {
-                try { banner = pm.getApplicationBanner(pkg); } catch (Exception ignored) { }
-            }
+            // Prefer the ORIGINAL app icon for equal optical weight across
+            // all six dock slots. A native TV banner is a fallback, but is
+            // fitted INSIDE its slot rather than used as a bright tile fill.
+            // Never recreate third-party logos or crop their wordmarks.
             Drawable icon = null;
-            if (banner == null) {
-                try { icon = pm.getApplicationIcon(pkg); } catch (Exception ignored) { }
-                if (icon == null) {
-                    try { icon = pm.getActivityIcon(intent); } catch (Exception ignored) { }
+            try { icon = pm.getApplicationIcon(pkg); } catch (Exception ignored) { }
+            if (icon == null) {
+                try { icon = pm.getActivityIcon(intent); } catch (Exception ignored) { }
+            }
+            Drawable banner = null;
+            if (icon == null) {
+                try { banner = pm.getActivityBanner(intent); } catch (Exception ignored) { }
+                if (banner == null) {
+                    try { banner = pm.getApplicationBanner(pkg); } catch (Exception ignored) { }
                 }
             }
             addDockTile(dock, pkg, label, banner, icon,
@@ -464,94 +558,93 @@ public final class HybridActivity extends Activity {
         addDockTile(dock, "settings", "Settings", null, null, this::openTvSettings);
     }
 
-    /** Original Android TV app banner, fitted to the unchanged TV dock tile. */
+    /**
+     * One optical language for every app and system shortcut:
+     * official app icon/contained banner above a quiet text label, all on the
+     * same frosted-slate glass substrate. Preserve Android's focus/action tags.
+     */
     private void addDockTile(LinearLayout dock, String pkg, String label,
                              Drawable banner, Drawable appIcon, Runnable activate) {
         final LinearLayout tile = new LinearLayout(this);
-        tile.setOrientation(LinearLayout.HORIZONTAL);
+        tile.setOrientation(LinearLayout.VERTICAL);
         tile.setGravity(Gravity.CENTER);
+        tile.setPadding(px(8), px(11), px(8), px(9));
         tile.setFocusable(true);
         tile.setFocusableInTouchMode(true);
         tile.setClickable(true);
         tile.setClipToOutline(true);
-        // Preserve names to screen readers, but never put a caption below art.
         tile.setContentDescription("Hybrid dock: " + label);
         tile.setTag(pkg);
-        tile.setBackground(dockSurface(pkg, false));
-        // Focus outline lives only in the foreground. Do NOT paint a blue
-        // background stroke as well, or TCL shows two offset rectangles.
+        // Cached surfaces prevent allocations on every D-pad focus event.
+        final Drawable restingGlass = dockSurface(pkg, false);
+        final Drawable focusedGlass = dockSurface(pkg, true);
+        final Drawable focusRing = dockFocusOutline();
+        tile.setBackground(restingGlass);
         tile.setForeground(null);
 
-        if (banner != null) {
-            // Fill the full landscape card with the actual Android TV banner.
-            // CENTER_CROP maintains the native proportions (unlike FIT_XY)
-            // while removing the letterbox bars caused by FIT_CENTER.
-            // Keep a 2px image inset. The selected border is overlaid
-            // independently on top of the artwork (not behind the banner).
-            ImageView artwork = new ImageView(this);
-            artwork.setImageDrawable(banner);
-            artwork.setScaleType(ImageView.ScaleType.CENTER_CROP);
-            artwork.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-            tile.setPadding(px(2), px(2), px(2), px(2));
-            tile.addView(artwork, new LinearLayout.LayoutParams(-1, -1));
-        } else if ("inputs".equals(pkg) || "settings".equals(pkg)) {
-            // These are system controls, not app logos: simple TV-style glyphs.
+        if ("inputs".equals(pkg) || "settings".equals(pkg)) {
             ImageView system = new ImageView(this);
             system.setImageDrawable(new LineIcon("inputs".equals(pkg)
                     ? LineIcon.HDMI : LineIcon.SETTINGS));
             system.setScaleType(ImageView.ScaleType.FIT_CENTER);
             system.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-            tile.addView(system, new LinearLayout.LayoutParams(px(78), px(78)));
+            tile.addView(system, new LinearLayout.LayoutParams(px(62), px(62)));
+        } else if (appIcon != null) {
+            // Native Android app icon at a uniform, moderate size. It never
+            // becomes a full-width rectangular billboard over family photos.
+            ImageView artwork = new ImageView(this);
+            artwork.setImageDrawable(appIcon);
+            artwork.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            artwork.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+            tile.addView(artwork, new LinearLayout.LayoutParams(px(68), px(68)));
+        } else if (banner != null) {
+            ImageView artwork = new ImageView(this);
+            artwork.setImageDrawable(banner);
+            artwork.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            artwork.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+            tile.addView(artwork, new LinearLayout.LayoutParams(px(156), px(66)));
         } else {
-            // TV-shaped fallback for apps with NO Leanback banner:
-            // a horizontal brand-mark + wordmark INSIDE the tile.
-            // Never enlarge a mobile square icon to fill the whole TV card.
-            LinearLayout brandRow = new LinearLayout(this);
-            brandRow.setGravity(Gravity.CENTER);
-            brandRow.setOrientation(LinearLayout.HORIZONTAL);
-            brandRow.setPadding(px(12), px(8), px(12), px(8));
-            if (YOUTUBE.equals(pkg)) {
-                TextView play = text("▶", 34, Color.WHITE, true);
-                play.setGravity(Gravity.CENTER);
-                play.setBackground(round(0xFFFF2025, 13, 0x00FFFFFF));
-                brandRow.addView(play, new LinearLayout.LayoutParams(px(67), px(51)));
-            } else if (STREMIO.equals(pkg)) {
-                TextView logo = text("◆", 62, 0xFF9C83FF, true);
-                logo.setGravity(Gravity.CENTER);
-                brandRow.addView(logo, new LinearLayout.LayoutParams(px(65), px(75)));
-            } else if (appIcon != null) {
-                ImageView smallMark = new ImageView(this);
-                smallMark.setImageDrawable(appIcon);
-                smallMark.setScaleType(ImageView.ScaleType.FIT_CENTER);
-                smallMark.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-                brandRow.addView(smallMark, new LinearLayout.LayoutParams(px(64), px(64)));
-            } else {
-                ImageView generic = new ImageView(this);
-                generic.setImageDrawable(new LineIcon(LineIcon.PLAY));
-                generic.setScaleType(ImageView.ScaleType.FIT_CENTER);
-                generic.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-                brandRow.addView(generic, new LinearLayout.LayoutParams(px(60), px(60)));
-            }
-            TextView wordmark = text(STREMIO.equals(pkg) ? "STREMIO" : label,
-                    (YOUTUBE.equals(pkg) || STREMIO.equals(pkg)) ? 31 : 27,
-                    Color.WHITE, true);
-            wordmark.setSingleLine(true);
-            wordmark.setEllipsize(TextUtils.TruncateAt.END);
-            wordmark.setGravity(Gravity.CENTER_VERTICAL);
-            wordmark.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-            LinearLayout.LayoutParams wordParams = new LinearLayout.LayoutParams(0, -2, 1f);
-            wordParams.leftMargin = px(12);
-            brandRow.addView(wordmark, wordParams);
-            tile.addView(brandRow, new LinearLayout.LayoutParams(-1, -1));
+            // Rare case: app publishes neither artwork type.
+            ImageView generic = new ImageView(this);
+            generic.setImageDrawable(new LineIcon(LineIcon.PLAY));
+            generic.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            generic.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+            tile.addView(generic, new LinearLayout.LayoutParams(px(58), px(62)));
         }
 
-        tile.setOnFocusChangeListener((v, focused) -> {
-            tile.setBackground(dockSurface(pkg, focused));
+        TextView caption = text(label, 19, 0xEEFFFFFF, true);
+        caption.setGravity(Gravity.CENTER);
+        caption.setSingleLine(true);
+        caption.setEllipsize(TextUtils.TruncateAt.END);
+        caption.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        LinearLayout.LayoutParams captionParams = new LinearLayout.LayoutParams(-1, -2);
+        captionParams.topMargin = px(6);
+        tile.addView(caption, captionParams);
+
+        final boolean glassPreview =
+                "com.ansub.tvhome.hybrid.glass.preview".equals(getPackageName());
+        final GlassFocusMotion glassMotion = glassPreview ? new GlassFocusMotion(tile) : null;
+        final Runnable updateFocusAppearance = () -> {
+            // A dialog owns focus in its own window, while Android retains
+            // the selected tile underneath. Glass shows only the active ring.
+            boolean focused = tile.hasFocus() && (!glassPreview || tile.hasWindowFocus());
+            tile.setBackground(focused ? focusedGlass : restingGlass);
             // One rounded highlight only; original TV banner stays unchanged.
-            tile.setForeground(focused ? dockFocusOutline() : null);
-            tile.setElevation(focused ? px(12) : 0);
-            tile.animate().scaleX(focused ? 1.045f : 1f)
-                    .scaleY(focused ? 1.045f : 1f).setDuration(155).start();
+            tile.setForeground(focused ? focusRing : null);
+            tile.setElevation(focused ? px(10) : 0);
+            if (glassMotion != null) {
+                glassMotion.moveTo(focused ? 1.045f : 1f);
+            } else {
+                tile.animate().scaleX(focused ? 1.045f : 1f)
+                        .scaleY(focused ? 1.045f : 1f).setDuration(175).start();
+            }
+        };
+        if (glassPreview) {
+            tile.getViewTreeObserver().addOnWindowFocusChangeListener(
+                    hasWindowFocus -> updateFocusAppearance.run());
+        }
+        tile.setOnFocusChangeListener((v, focused) -> {
+            updateFocusAppearance.run();
             if (focused) showSelection(pkg, label);
         });
         tile.setOnClickListener(v -> {
@@ -560,9 +653,9 @@ public final class HybridActivity extends Activity {
             }
         });
         dockTiles.add(tile);
-        LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(0, px(136), 1f);
-        tp.leftMargin = px(8);
-        tp.rightMargin = px(8);
+        LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(0, px(118), 1f);
+        tp.leftMargin = px(5);
+        tp.rightMargin = px(5);
         dock.addView(tile, tp);
     }
 
@@ -574,35 +667,19 @@ public final class HybridActivity extends Activity {
         GradientDrawable stroke = new GradientDrawable();
         stroke.setColor(Color.TRANSPARENT);
         stroke.setCornerRadius(px(18));
-        stroke.setStroke(px(3), 0xFF95BDFB);
+        stroke.setStroke(px(2), 0xFFB6D9FF);
         return new InsetDrawable(stroke, px(3));
     }
 
-    /** Dark glossy backing; focus outline also overlays the child TV banner. */
+    /** Quiet common glass substrate with a restrained icy-blue focus state. */
     private GradientDrawable dockSurface(String pkg, boolean focused) {
-        int top = 0xEA26354D;
-        int bottom = 0xE5172236;
-        if (STREMIO.equals(pkg)) {
-            top = 0xEA373159;
-            bottom = 0xE51A1C38;
-        } else if (YOUTUBE.equals(pkg)) {
-            top = 0xEA3C3441;
-            bottom = 0xE5222533;
-        } else if ("inputs".equals(pkg) || "settings".equals(pkg)) {
-            top = 0xEA343C47;
-            bottom = 0xE5202836;
-        }
-        if (focused) {
-            top = 0xF4465278;
-            bottom = 0xF1283556;
-        }
+        final int top = focused ? 0xDC426078 : 0xA3263544;
+        final int bottom = focused ? 0xCC30445D : 0xAC202C39;
         GradientDrawable background = new GradientDrawable(
                 GradientDrawable.Orientation.TL_BR, new int[]{top, bottom});
         background.setCornerRadius(px(21));
-        // IMPORTANT: never draw a selected background border here.
-        // It sits UNDER the native banner and creates the second, cut-off
-        // line seen on TCL TV. Selected focus is foreground-only.
-        if (!focused) background.setStroke(px(1), 0x35FFFFFF);
+        // The SINGLE focus border is a foreground drawable; no double ring.
+        if (!focused) background.setStroke(px(1), 0x30FFFFFF);
         return background;
     }
 
@@ -698,10 +775,12 @@ public final class HybridActivity extends Activity {
 
         LinearLayout content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
-        content.setPadding(px(24), px(8), px(24), px(6));
-        TextView hint = text("Green: reported connected  ·  Amber: standby  ·  Grey: disconnected/unknown",
-                21, 0xFFD7DFEC, false);
-        hint.setPadding(0, px(6), 0, px(20));
+        content.setPadding(px(25), px(6), px(25), px(10));
+        // Native TvInputManager observations; these colors never claim that
+        // "unknown" means physically unplugged.
+        TextView hint = text("Green: reported connected  ·  Amber: standby  ·  Grey: disconnected / unknown",
+                18, 0xFFD3DCE8, false);
+        hint.setPadding(0, px(9), 0, px(19));
         content.addView(hint);
 
         final View[] first = new View[1];
@@ -710,23 +789,26 @@ public final class HybridActivity extends Activity {
             LinearLayout row = new LinearLayout(this);
             row.setOrientation(LinearLayout.HORIZONTAL);
             row.setGravity(Gravity.CENTER_VERTICAL);
-            row.setPadding(px(18), px(13), px(18), px(13));
+            row.setPadding(px(22), px(13), px(22), px(13));
             row.setFocusable(true);
             row.setClickable(true);
-            row.setBackground(round(0xEC29354C, 16, 0x55FFFFFF));
+            // Cached themed glass backgrounds: D-pad focus never allocates a
+            // new rounded drawable for every navigation move.
+            final Drawable idleRow = round(0xD72B3A49, 18, 0x3BFFFFFF);
+            final Drawable focusRow = round(0xE63C5267, 18, 0xFFADD7FF);
+            row.setBackground(idleRow);
             if (first[0] == null) first[0] = row;
-            TextView title = text(source.label, 28, Color.WHITE, true);
+            TextView title = text(source.label, 29, Color.WHITE, true);
             title.setSingleLine(true);
             row.addView(title, new LinearLayout.LayoutParams(0,-2,1f));
             TextView status = text("●  " + sourceStatus(source.state), 20,
                     sourceStatusColor(source.state), true);
             status.setGravity(Gravity.RIGHT);
             row.addView(status, new LinearLayout.LayoutParams(-2,-2));
-            row.setOnFocusChangeListener((v,focused) -> row.setBackground(
-                    round(focused ? 0xFF394F79 : 0xEC29354C,16,
-                            focused ? 0xFF95BDFB : 0x55FFFFFF)));
+            row.setOnFocusChangeListener((v, focused) ->
+                    row.setBackground(focused ? focusRow : idleRow));
             row.setOnClickListener(v -> switchTvInput(source, holder[0]));
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1,px(84));
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, px(82));
             lp.bottomMargin=px(8);
             content.addView(row,lp);
         }
@@ -741,7 +823,7 @@ public final class HybridActivity extends Activity {
         scroll.addView(content);
         AlertDialog dialog = new AlertDialog.Builder(this,
                 android.R.style.Theme_Material_Dialog_Alert)
-                .setTitle("Select TV source")
+                .setTitle("TV inputs  ·  HDMI / AV")
                 .setView(scroll)
                 .setNegativeButton("Back", (d,which) -> d.dismiss())
                 .create();
@@ -750,6 +832,17 @@ public final class HybridActivity extends Activity {
             if (first[0] != null) first[0].requestFocus();
         });
         dialog.show();
+        // Style only this in-app source chooser as Glass. Keep Android's
+        // accessible native dialog, BACK behavior and real TV input intents.
+        Window window = dialog.getWindow();
+        if (window != null) {
+            window.setBackgroundDrawable(round(0xF0202D3A, 27, 0x65FFFFFF));
+            window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+            WindowManager.LayoutParams attributes = window.getAttributes();
+            attributes.dimAmount = 0.32f;
+            window.setAttributes(attributes);
+            window.setLayout(px(960), WindowManager.LayoutParams.WRAP_CONTENT);
+        }
     }
 
     private void switchTvInput(SourceEntry selected, AlertDialog dialog) {
@@ -790,26 +883,57 @@ public final class HybridActivity extends Activity {
     }
 
     private void showSelection(String pkg, String label) {
+        if (!STREMIO.equals(pkg) && !YOUTUBE.equals(pkg)) {
+            showIdle(); // Utility navigation stays quiet; wallpaper remains primary.
+            return;
+        }
         heroArtwork.setVisibility(View.GONE);
         heroArtwork.setImageDrawable(null);
         hero.setVisibility(View.VISIBLE);
+        featuredPlaybackAvailable = false;
         playbackProgress.setVisibility(View.GONE);
         heroEyebrow.setText(STREMIO.equals(pkg) ? "CONTINUE WATCHING  ·  STREMIO"
                 : YOUTUBE.equals(pkg) ? "YOUTUBE  ·  FEATURED"
                 : "YOUR APPS  ·  " + label.toUpperCase(Locale.US));
-        heroAction.setText("▶  Press OK to open " + label);
+        heroAction.setText("▶  Open " + label);
         heading.setText(label);
         if (STREMIO.equals(pkg)) {
             showStremio();
         } else if (YOUTUBE.equals(pkg)) {
             showYoutube();
-        } else if ("inputs".equals(pkg) || "settings".equals(pkg)) {
-            details.setText("TV controls");
-            footnote.setText("Press OK to open " + label);
-        } else {
-            details.setText("Featured app");
-            footnote.setText("Press OK to open " + label + " · No viewing data accessed");
         }
+        applyPlaybackCardSize(featuredPlaybackAvailable);
+    }
+
+    private void applyPlaybackCardSize(boolean hasPlayback) {
+        if (hero == null) return;
+        // Focused app with no media: a short unobtrusive status strip just
+        // above the dock. Do not place a dark empty panel over family faces.
+        // Playback data present: restore the cinematic media card unchanged.
+        heroAction.setVisibility(hasPlayback ? View.VISIBLE : View.GONE);
+        heroEyebrow.setVisibility(hasPlayback ? View.VISIBLE : View.GONE);
+        heading.setTextSize(TypedValue.COMPLEX_UNIT_PX, px(hasPlayback ? 52 : 30));
+        heading.setMaxLines(hasPlayback ? 2 : 1);
+        details.setTextSize(TypedValue.COMPLEX_UNIT_PX, px(hasPlayback ? 25 : 21));
+        details.setMaxLines(hasPlayback ? 2 : 1);
+        footnote.setTextSize(TypedValue.COMPLEX_UNIT_PX, px(hasPlayback ? 19 : 17));
+        footnote.setMaxLines(hasPlayback ? 2 : 1);
+
+        LinearLayout.LayoutParams titleParams =
+                (LinearLayout.LayoutParams) heading.getLayoutParams();
+        titleParams.topMargin = px(hasPlayback ? 23 : 0);
+        heading.setLayoutParams(titleParams);
+        LinearLayout.LayoutParams detailsParams =
+                (LinearLayout.LayoutParams) details.getLayoutParams();
+        detailsParams.topMargin = px(hasPlayback ? 9 : 4);
+        details.setLayoutParams(detailsParams);
+        LinearLayout.LayoutParams noteParams =
+                (LinearLayout.LayoutParams) footnote.getLayoutParams();
+        noteParams.topMargin = px(hasPlayback ? 9 : 4);
+        footnote.setLayoutParams(noteParams);
+
+        hero.setLayoutParams(pos(px(74), px(hasPlayback ? 275 : 695),
+                px(hasPlayback ? 1065 : 785), px(hasPlayback ? 412 : 151)));
     }
 
     private void showYoutube() {
@@ -848,6 +972,7 @@ public final class HybridActivity extends Activity {
             footnote.setText("Play a video in YouTube, then press Home");
             return;
         }
+        featuredPlaybackAvailable = true;
         heroEyebrow.setText(live
                 ? "YOUTUBE  ·  MEDIA SESSION"
                 : "LAST SEEN  ·  YOUTUBE  ·  SAVED");
@@ -911,6 +1036,7 @@ public final class HybridActivity extends Activity {
                 int progress = (int) Math.max(0L, Math.min(1000L, watched * 1000L / total));
                 playbackProgress.setProgress(progress);
                 playbackProgress.setVisibility(View.VISIBLE);
+                featuredPlaybackAvailable = true;
                 heroEyebrow.setText("CONTINUE WATCHING  ·  STREMIO");
                 footnote.setText(fmt(watched) + " watched  ·  " +
                         fmt(total - watched) + " left  ·  " +
@@ -942,6 +1068,7 @@ public final class HybridActivity extends Activity {
             footnote.setText("Play a title in Stremio, then return here");
             return;
         }
+        featuredPlaybackAvailable = true;
         heroEyebrow.setText("LAST SEEN  ·  STREMIO  ·  SAVED");
         heading.setText(saved.title);
         details.setText(saved.artist.isEmpty() ? "Previously watched on this TV"
@@ -1012,9 +1139,11 @@ public final class HybridActivity extends Activity {
         updatePrayerPanel();
         ui.postDelayed(prayerTick, PRAYER_REFRESH_MS);
         startPhotos();
-        View focus = getCurrentFocus();
-        if (focus != null && STREMIO.equals(focus.getTag())) showSelection(STREMIO, "Stremio");
-        else if (focus != null && YOUTUBE.equals(focus.getTag())) showSelection(YOUTUBE, "YouTube");
+        if (browseView == null) {
+            View focus = getCurrentFocus();
+            if (focus != null && STREMIO.equals(focus.getTag())) showSelection(STREMIO, "Stremio");
+            else if (focus != null && YOUTUBE.equals(focus.getTag())) showSelection(YOUTUBE, "YouTube");
+        }
     }
 
     @Override protected void onPause() {
@@ -1076,8 +1205,17 @@ public final class HybridActivity extends Activity {
         for (int i = 0; i < 5; i++) {
             prayerTimeViews[i].setText(PrayerSchedule2026.format(d[indices[i]]));
             // The gold highlight only identifies a prayer period that has started.
-            prayerTiles[i].setBackground(i == current
-                    ? round(0xB5936F37, 18, 0xFFE8BD67) : null);
+            Drawable highlight = null;
+            if (i == current) {
+                if (browseView == null) highlight = round(0xB5936F37, 18, 0xFFE8BD67);
+                else {
+                    GradientDrawable underline = new GradientDrawable();
+                    underline.setColor(0xFFE8BD67);
+                    underline.setCornerRadius(px(2));
+                    highlight = new InsetDrawable(underline, px(20), px(66), px(20), 0);
+                }
+            }
+            prayerTiles[i].setBackground(highlight);
         }
 
         int next = -1;
@@ -1160,26 +1298,22 @@ public final class HybridActivity extends Activity {
                 options.inSampleSize = sample;
                 bitmap = BitmapFactory.decodeFile(f.getAbsolutePath(), options);
             } catch (Exception ignored) { }
-            Bitmap result = bitmap;
-            Bitmap blurred = null;
-            if (result != null) {
-                try {
-                    float screenRatio = (float) getResources().getDisplayMetrics().widthPixels
-                            / Math.max(1, getResources().getDisplayMetrics().heightPixels);
-                    blurred = TvWallpaperView.makeBlurredFill(result, screenRatio);
-                } catch (OutOfMemoryError oom) {
-                    // The original photo can still be shown undistorted.
-                    android.util.Log.w("HybridWallpaper", "Backdrop memory limit", oom);
-                }
+            final Bitmap result = bitmap;
+            // Always full-bleed wallpaper: prepare only the decoded photograph.
+            // CENTER_CROP on TvWallpaperView keeps aspect ratio and fills every
+            // screen; no secondary blurred fill or FIT_CENTER letterboxing.
+            // Prewarm the texture off the UI thread, preserving TCL fade speed.
+            try {
+                if (result != null) result.prepareToDraw();
+            } catch (RuntimeException ignored) {
+                // Rendering still works without this optional optimization.
             }
-            final Bitmap background = blurred;
             ui.post(() -> {
                 if (!active || token != generation) {
                     if (result != null && !result.isRecycled()) result.recycle();
-                    if (background != null && !background.isRecycled()) background.recycle();
                     return;
                 }
-                if (result != null) photo.show(result, background);
+                if (result != null) photo.show(result);
                 if (photos.size() > 1) ui.postDelayed(this::nextPhoto, SLIDE_MS);
             });
         }).start();

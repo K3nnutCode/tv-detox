@@ -7,16 +7,20 @@ on:
     paths:
       - 'AndroidManifest-hybrid-stable.xml'
       - 'AndroidManifest-hybrid-youtube-preview.xml'
+      - 'AndroidManifest-hybrid-glass-preview.xml'
       - 'build-hybrid-stable.sh'
       - '.github/workflows/hybrid-stable.yml'
+      - 'ci/glass-browse-smoke-test.sh'
       - 'src/com/ansub/tvhome/**'
       - 'apps-photos.txt'
   pull_request:
     paths:
       - 'AndroidManifest-hybrid-stable.xml'
       - 'AndroidManifest-hybrid-youtube-preview.xml'
+      - 'AndroidManifest-hybrid-glass-preview.xml'
       - 'build-hybrid-stable.sh'
       - '.github/workflows/hybrid-stable.yml'
+      - 'ci/glass-browse-smoke-test.sh'
       - 'src/com/ansub/tvhome/**'
       - 'apps-photos.txt'
   workflow_dispatch:
@@ -191,6 +195,126 @@ jobs:
           name: hybrid-tv-v1.0.1-youtube-preview-apk
           path: out-hybrid-stable/hybrid-tv-v1.0.1-youtube-preview.apk
           retention-days: 14
+
+  glass-preview:
+    name: Build isolated Hybrid TV Glass v1.1 APK
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Android SDK 34
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-34" "build-tools;34.0.0" >/dev/null
+      - name: Verify Glass design and functional regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=src/com/ansub/tvhome/HybridActivity.java
+          grep -Fq 'photo = new TvWallpaperView(this)' "$SRC"
+          grep -Fq 'SLIDE_MS = 60000L' "$SRC"
+          grep -Fq 'showTvInputSelector' "$SRC"
+          grep -Fq 'getScanCode() == 233' "$SRC"
+          grep -Fq 'new HybridWeatherWidget(this, scale, true)' "$SRC"
+          grep -Fq 'heroArtwork.setImageBitmap(' "$SRC"
+          grep -Fq 'View ribbon = new View(this)' "$SRC"
+          # Phase 5 information ribbon and in-app HDMI/AV chooser glass style.
+          grep -Fq 'ribbon.setBackground(round(0xA626343F, 30, 0x38FFFFFF))' "$SRC"
+          grep -Fq 'TV inputs  ·  HDMI / AV' "$SRC"
+          grep -Fq 'Window window = dialog.getWindow()' "$SRC"
+          grep -Fq 'window.setBackgroundDrawable(round(0xF0202D3A' "$SRC"
+          grep -Fq 'window.setLayout(px(960)' "$SRC"
+          grep -Fq 'sourceStatusColor(source.state)' "$SRC"
+          grep -Fq 'TvContract.buildChannelUriForPassthroughInput(selected.info.getId())' "$SRC"
+          # Phase 5: installed-app icons fit a single consistent glass dock.
+          grep -Fq 'pm.getApplicationIcon(pkg)' "$SRC"
+          grep -Fq 'new LinearLayout.LayoutParams(px(68), px(68))' "$SRC"
+          grep -Fq 'caption.setSingleLine(true)' "$SRC"
+          # Unavailable Stremio/YouTube metadata must not cover the family photo.
+          grep -Fq 'heroEyebrow.setVisibility(hasPlayback ? View.VISIBLE : View.GONE)' "$SRC"
+          grep -Fq 'px(hasPlayback ? 275 : 695)' "$SRC"
+          grep -Fq 'px(hasPlayback ? 412 : 151)' "$SRC"
+          grep -Fq 'dockSurface(pkg, false)' "$SRC"
+          grep -Fq 'new LineIcon("inputs".equals(pkg)' "$SRC"
+          grep -Fq 'showIdle(); // Utility navigation stays quiet' "$SRC"
+          # Android 11 photo upload prewarm remains off the UI thread.
+          grep -Fq 'result.prepareToDraw();' "$SRC"
+          grep -Fq 'photo.show(result);' "$SRC"
+          ! grep -Fq 'makeBlurredFill(' "$SRC"
+          # All uploaded aspect ratios use real full-bleed, no FIT_CENTER bars
+          # or stretched images; the one-second photo fade stays independent
+          # of TCL's system animator-duration setting.
+          WALL=src/com/ansub/tvhome/TvWallpaperView.java
+          grep -Fq 'photo.setScaleType(ImageView.ScaleType.CENTER_CROP)' "$WALL"
+          ! grep -Fq 'ImageView.ScaleType.FIT_CENTER' "$WALL"
+          ! grep -Fq 'ImageView.ScaleType.FIT_XY' "$WALL"
+          ! grep -Fq 'makeBlurredFill(' "$WALL"
+          ! grep -Fq 'useBlurredFill(' "$WALL"
+          grep -Fq 'next.view.postOnAnimation(pendingFade);' "$WALL"
+          grep -Fq 'Photo crossfade complete:' "$WALL"
+          ! grep -Fq 'next.view.animate().alpha(1f)' "$WALL"
+          if grep -q 'cinematic.setImageBitmap' "$SRC"; then
+            echo 'Fullscreen artwork overlay regression' >&2
+            exit 1
+          fi
+      - name: Build Glass with disposable signing certificate
+        env:
+          MODE: glass
+        run: sh build-hybrid-stable.sh
+      - name: Verify separate package, TV app entry and NO Home takeover
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=out-hybrid-stable/hybrid-tv-glass-v1.1-preview.apk
+          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify "$APK"
+          "$ANDROID_HOME/build-tools/34.0.0/aapt" dump badging "$APK" | grep -F "package: name='com.ansub.tvhome.hybrid.glass.preview'"
+          "$ANDROID_HOME/build-tools/34.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml > /tmp/hybrid-glass-manifest.txt
+          grep -q 'android.intent.category.LEANBACK_LAUNCHER' /tmp/hybrid-glass-manifest.txt
+          ! grep -q 'android.intent.category.HOME' /tmp/hybrid-glass-manifest.txt
+          ! grep -q 'android.permission.QUERY_ALL_PACKAGES' /tmp/hybrid-glass-manifest.txt
+          echo 'PASS: visually distinct preview cannot replace Stable Home'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hybrid-tv-glass-v1.1-preview-apk
+          path: out-hybrid-stable/hybrid-tv-glass-v1.1-preview.apk
+          retention-days: 14
+
+  glass-browse-test:
+    name: Verify Glass Browse and Photo Home navigation on Android TV 11
+    if: github.event_name == 'pull_request'
+    needs: glass-preview
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: hybrid-tv-glass-v1.1-preview-apk
+          path: out-hybrid-stable
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+      - name: Exercise Browse using the remote without notification access
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: android-tv
+          arch: x86
+          profile: tv_1080p
+          disable-animations: true
+          script: sh ci/glass-browse-smoke-test.sh emulator-5554 glass-browse-results
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: glass-browse-emulator-results
+          path: glass-browse-results
+          retention-days: 7
 
   release-signed:
     name: Stable APK — same owner-held signing key on every update
