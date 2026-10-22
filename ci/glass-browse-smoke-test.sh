@@ -3,6 +3,10 @@
 set -eu
 SERIAL=${1:-emulator-5554}
 RESULT_DIR=${2:-glass-browse-results}
+case "$SERIAL" in emulator-*) ;; *) echo 'Glass CI runs on emulators only' >&2; exit 1;; esac
+adb -s "$SERIAL" shell getprop ro.kernel.qemu | tr -d '\r' | grep -qx '1'
+python3 ci/check-glass-source.py
+sh ci/check-glass-focus-motion.sh
 mkdir -p "$RESULT_DIR"
 
 key() { adb -s "$SERIAL" shell input keyevent "$1"; }
@@ -32,6 +36,22 @@ expect_focus() {
 }
 
 adb -s "$SERIAL" install out-hybrid-stable/hybrid-tv-glass-v1.1-preview.apk
+# Synthetic fixtures only: exercise the actual photo path without owner data.
+python3 - "$RESULT_DIR" <<'PHOTO_PY'
+import pathlib, struct, sys, zlib
+def chunk(kind, data):
+    return struct.pack('>I', len(data)) + kind + data + struct.pack('>I', zlib.crc32(kind + data))
+for name, width, height, color in [('landscape', 1920, 1080, (24, 72, 112)),
+                                    ('portrait', 960, 1440, (74, 102, 64))]:
+    rows = (b'\x00' + bytes(color) * width) * height
+    png = b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', width, height, 8, 2, 0, 0, 0))
+    png += chunk(b'IDAT', zlib.compress(rows)) + chunk(b'IEND', b'')
+    pathlib.Path(sys.argv[1], 'glass-ci-' + name + '.png').write_bytes(png)
+PHOTO_PY
+adb -s "$SERIAL" shell mkdir -p /sdcard/Pictures/TVWallpapers
+adb -s "$SERIAL" push "$RESULT_DIR/glass-ci-landscape.png" /sdcard/Pictures/TVWallpapers/ >/dev/null
+adb -s "$SERIAL" push "$RESULT_DIR/glass-ci-portrait.png" /sdcard/Pictures/TVWallpapers/ >/dev/null
+adb -s "$SERIAL" shell pm grant com.ansub.tvhome.hybrid.glass.preview android.permission.READ_EXTERNAL_STORAGE
 adb -s "$SERIAL" shell am start -W -n \
     com.ansub.tvhome.hybrid.glass.preview/com.ansub.tvhome.HybridActivity
 expect_photo_home
@@ -105,3 +125,33 @@ key KEYCODE_DPAD_UP
 key KEYCODE_DPAD_CENTER
 expect_photo_home
 echo 'PASS: Photo Home, Browse grid D-pad navigation, Inputs/Back, reopen and Photo Home button'
+# The runner disables Android animations. Real fades must still schedule frames.
+adb -s "$SERIAL" shell settings get global animator_duration_scale | tr -d '\r' | grep -Eq '^0(\.0)?$'
+GLASS_PID=$(adb -s "$SERIAL" shell pidof com.ansub.tvhome.hybrid.glass.preview | tr -d '\r')
+adb -s "$SERIAL" logcat --pid="$GLASS_PID" -d -v epoch -s HybridWallpaperFade:I '*:S' > "$RESULT_DIR/fades-before.txt"
+adb -s "$SERIAL" shell dumpsys meminfo com.ansub.tvhome.hybrid.glass.preview > "$RESULT_DIR/idle-memory-before.txt"
+adb -s "$SERIAL" shell dumpsys gfxinfo com.ansub.tvhome.hybrid.glass.preview reset > "$RESULT_DIR/idle-reset.txt"
+SEGMENT=0
+while [ "$SEGMENT" -lt 9 ]; do
+    sleep 15
+    SEGMENT=$((SEGMENT + 1))
+    echo "Glass synthetic slideshow sample: $((SEGMENT * 15))/135 seconds"
+done
+adb -s "$SERIAL" shell dumpsys gfxinfo com.ansub.tvhome.hybrid.glass.preview framestats > "$RESULT_DIR/idle-frames.txt"
+adb -s "$SERIAL" shell dumpsys meminfo com.ansub.tvhome.hybrid.glass.preview > "$RESULT_DIR/idle-memory-after.txt"
+adb -s "$SERIAL" logcat --pid="$GLASS_PID" -d -v epoch -s HybridWallpaperFade:I '*:S' > "$RESULT_DIR/fades-after.txt"
+python3 - "$RESULT_DIR" <<'FADE_PY'
+import pathlib, re, sys
+root = pathlib.Path(sys.argv[1])
+before = root.joinpath('fades-before.txt').read_text()
+after = root.joinpath('fades-after.txt').read_text()
+times = re.findall(r'^\s*(\d+\.\d+).*HybridWallpaperFade:', before, re.M)
+boundary = float(times[-1]) if times else 0
+fades = [(int(ms), int(frames)) for timestamp, ms, frames in re.findall(
+    r'^\s*(\d+\.\d+).*Photo crossfade complete: (\d+)ms, (\d+) frames', after, re.M)
+    if float(timestamp) > boundary]
+assert len(fades) >= 2, 'Expected at least two actual completed photo fades'
+assert all(ms >= 1050 and frames > 1 for ms, frames in fades), 'Fade timing/callback regression'
+print('PASS: actual fades at animator scale zero; elapsed ms / callback counts:', fades)
+print('Emulator counters are diagnostic artifacts, not TCL performance evidence.')
+FADE_PY

@@ -2,6 +2,14 @@
 
 This draft runs on the user's TCL Android TV 11. **Do not run any HOME switch, uninstall production apps, or change TV firmware** as part of visual/performance testing.
 
+## Measured performance candidate and UI audit
+See [the measured review](glass-performance-and-ui-review.md) for the new private
+owner-capture analysis, before/after status, Glass-only compositing and self-timed
+focus candidates, source guards, and proposed readability/weather-file work.
+The additional CI photo sample uses only synthetic emulator fixtures. New TCL
+PSS/jank non-regression and visual acceptance remain pending; the earlier
+one-frame navigation capture cannot certify the requested 30 moves.
+
 ## Phase 5 Inputs acceptance and focus refinement
 - Owner evidence: open-selector screenshot reviewed for layout/readability; owner confirmed row navigation, Back dismissal and correct source selection. Home returning to Stable after source use is expected.
 - Glass-only refinement `db7c8ad`, owner-validated on TCL Android TV 11 after an explicitly approved preview update: the open-selector screenshot shows the active HDMI row outline with the underlying Inputs dock tile resting. The owner confirmed Back immediately restores the Inputs dock highlight. This validates the screenshot and restoration behavior; it does not measure animation timing or performance.

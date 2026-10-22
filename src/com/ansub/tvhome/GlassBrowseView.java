@@ -191,12 +191,12 @@ final class GlassBrowseView extends FrameLayout {
                 quiet ? 0x001A2B40 : 0x8A182333, quiet ? 0x00FFFFFF : 0x24FFFFFF);
         Drawable focus = surface(0xDB304C66, 0xD4253B52, 0xFFA9D9FF);
         view.setBackground(idle);
+        GlassFocusMotion motion = new GlassFocusMotion(view);
         Runnable appearance = () -> {
             boolean selected = view.hasFocus() && view.hasWindowFocus();
             view.setBackground(selected ? focus : idle);
             view.setElevation(selected ? px(6) : 0);
-            view.animate().scaleX(selected ? 1.025f : 1f)
-                    .scaleY(selected ? 1.025f : 1f).setDuration(175).start();
+            motion.moveTo(selected ? 1.025f : 1f);
         };
         focusAppearances.add(appearance);
         view.setOnFocusChangeListener((v, focused) -> appearance.run());

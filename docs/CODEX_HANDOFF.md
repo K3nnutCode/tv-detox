@@ -40,6 +40,16 @@ A premium but very lightweight Android TV launcher inspired by Apple TV's clarit
 - Some Skia OpenGL GPU timing reports show `4950ms` sentinel buckets; treat these as unreliable. Variable purgeable GPU texture-cache sizes are not direct evidence of leaks.
 
 ## Exact next actions
+Current owner-requested measured work is tracked in
+[Glass performance and UI review](glass-performance-and-ui-review.md). The owner
+subsequently waived phase approval prompts. The measured native/graphics growth
+and renderer stalls now have a small Glass-only compositing candidate; Glass
+focus timing is also self-timed. Local checks pass, but new TCL after-captures
+and UI screenshot acceptance remain pending. No Stable/HOME change, listener
+grant or TV update has been performed. UI and weather-file ideas are documented
+as proposals, not silently applied. Existing release/Stable safety boundaries
+remain in effect.
+
 1. Read the branch, this handoff, `AGENTS.md`, and PR #10 review notes. Identify any unexpected changes before editing.
 2. **Continue Phase 5 design**, not stable-release engineering. Inputs layout/navigation/source switching and the dock/window-focus refinement have owner acceptance; do not repeat the completed screenshot/Back check without a regression. Physical Input-key entry remains an additional regression scenario if delivered by the TV. Any further preview installation needs explicit owner approval.
 3. Review top ribbon and source-menu polish before design sign-off. A subsequent YouTube screenshot confirmed the compact no-access strip fits without covering faces. The owner chose to leave broad notification-listener access disabled for now; real Stremio/YouTube media-card validation remains **untested**, not failed. Do not enable access or repeatedly request it as a prerequisite for other design work.

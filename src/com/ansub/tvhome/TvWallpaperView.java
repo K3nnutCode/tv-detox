@@ -31,12 +31,25 @@ final class TvWallpaperView extends FrameLayout {
     private int fadeGeneration;
     private Runnable pendingFade;
 
+    /** A Glass slide draws one image, so its fade needs no group-alpha layer. */
+    private static final class GlassPhotoFrame extends FrameLayout {
+        GlassPhotoFrame(Context context) { super(context); }
+
+        @Override public boolean hasOverlappingRendering() {
+            // Fall back to normal group compositing if future content overlaps.
+            return getBackground() != null || getForeground() != null
+                    || getChildCount() != 1 || getChildAt(0).hasOverlappingRendering();
+        }
+    }
+
     private static final class Slide {
         final FrameLayout view;
         final ImageView photo;
 
         Slide(Context context) {
-            view = new FrameLayout(context);
+            // Other installed variants retain the original rendering path.
+            view = "com.ansub.tvhome.hybrid.glass.preview".equals(context.getPackageName())
+                    ? new GlassPhotoFrame(context) : new FrameLayout(context);
             photo = new ImageView(context);
             // Fill every screen, irrespective of wallpaper aspect ratio.
             // CENTER_CROP trims edges without stretching or letterbox bars.
