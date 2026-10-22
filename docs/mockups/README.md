@@ -12,3 +12,8 @@ The proposed direction uses one smoked-glass palette, a quieter information
 ribbon and a single app grid, with one focus ring and open photo space. It removes
 the pale Browse page, oversized logo cards and duplicated app shelf. No code or
 TV changes are included in this visual study. Phase 5 remains open.
+
+The owner subsequently authorized building this direction. See the current
+design and validation sections in `../hybrid-tv-glass-design.md` and
+`../hybrid-tv-glass-validation.md`; the PNG remains an illustrative concept,
+not evidence that an installed build has passed visual acceptance.

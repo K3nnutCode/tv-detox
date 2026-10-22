@@ -2,7 +2,16 @@
 
 This branch is a **visual experiment** based on the approved 16:9 mockup. It is separate from the v1.0 default Home and from PR #9's v1.0.1 functionality fixes.
 
-## Separate Browse experiment (22 October 2026)
+## Current direction: dark Browse grid
+The owner rejected the light dashboard's clutter and authorized building the [new dark concept](mockups/glass-browse-dark-concept.png), then refining it iteratively. The implementation uses one coherent smoked-glass palette and a single four-column app grid, preserving open photo space on the right. There is no white page, giant app-banner hero, repeated Open action or duplicate shelf. This is still Phase 5, pending TCL visual acceptance.
+
+- Each discovered app appears once using its original installed icon and one readable 24px label. Up to six apps plus real Inputs/Settings utilities form the first two rows; further apps remain reachable by vertical D-pad scrolling. No movie catalog or imaginary titles are introduced.
+- Cells use cached resting/focused drawables, a single icy-blue stroke and a restrained 175ms lift. Explicit neighbours keep focus within the grid and let Up from the first row reach Photo Home. Window focus updates are owned by the Browse view, so removed grids leave no window-observer registrations behind.
+- Browse dims the existing full-bleed photo view with a static horizontal navy gradient. The slideshow's timing, manual fade and decode pipeline are unchanged. The generated mockup landscape is not bundled as a replacement wallpaper.
+- Browse-only ribbon styling is 144 reference pixels high, with a 64px clock, no greeting and an underline for the actual current prayer. The five verified prayer times, next/current/source and out-of-range messages, Asia/Brunei timezone and existing weather remain intact. Closing Browse restores the original Photo Home layout and 160px ribbon.
+- Existing native source selection, Back, Settings and physical TCL scan-code handling stay with the host. The grid itself reads no playback snapshots and asks for no additional permissions. The existing authorized Photo Home media hero remains available; richer content browsing is a later design/data-source decision.
+
+## Earlier separate Browse experiment (superseded)
 The owner supplied a light streaming-dashboard reference and chose **a separate Browse screen**, retaining Photo Home. This is a Phase 5 prototype, not design sign-off or approval to install a new build.
 
 - Glass-only entry: **Up from idle** opens Browse; Up from the existing dock still returns to idle first. A small Browse entry also supports clicking. Back or the **Photo Home** button returns to the idle photo composition. Android Home remains handled by the Stable default launcher.

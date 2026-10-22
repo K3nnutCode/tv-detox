@@ -8,7 +8,19 @@ This draft runs on the user's TCL Android TV 11. **Do not run any HOME switch, u
 - Additional regression scenarios not separately confirmed after this change: reopen, source selection/return to Glass, and physical Input-key entry if delivered by the TV (from another dock tile or idle). Original selector navigation, Back dismissal and correct source switching had owner acceptance before this refinement.
 - No notification-listener access is needed. Full media-card validation remains untested while the owner leaves that permission disabled.
 
-## Separate Browse screen: validation gates
+## Current dark Browse grid: validation gates
+The owner authorized replacing the lighter dashboard after reporting clutter. This grid implementation is a new iteration; earlier light-Browse acceptance does not establish its device readiness.
+
+1. Open Glass on Photo Home, Down into its six-slot dock, Up back to idle, then Up again into Browse. Verify native app icons appear once in a four-column grid, with Inputs/Settings in the first two rows and additional apps reachable below. No pale page, giant logo cards or duplicated shelf should remain.
+2. Navigate left/right/up/down, including first/last columns, a partial last row and all offscreen apps. Check long-label truncation and a single focus ring that stays visible at viewport edges. Apps must still launch; returning to Glass should retain Browse and its focus.
+3. Open Inputs from its grid cell, verify underlying focus rests, and dismiss with Back. Back again returns to idle Photo Home. Reopen Browse and use its Photo Home control. Check Settings and the physical TCL Settings key separately on the TV.
+4. Compare Browse's smaller clock/quieter ribbon/current-prayer underline with Photo Home's original layout after closing. All five prayers, source/coverage notices, weather and Brunei clock must remain visible and real in both states. Do not infer an out-of-range date's times from the mockup.
+5. Supply a new private TCL screenshot and observe at least two real photo fades. The sample landscape is a design reference only; the TV must continue using its existing photos. New frame/memory claims require new measurements.
+6. Notification access remains disabled. This app-grid iteration reads no Browse snapshots; the existing authorized Photo Home media path is separate. No fabricated entertainment cards are used to fill space.
+
+The revised `ci/glass-browse-smoke-test.sh` checks entry, grid focus movement, header return, native Inputs/Back, reopening and Photo Home. It adapts utility navigation to the emulator's actual app count. Its outcome belongs to the current commit; it does not replace owner visual acceptance.
+
+## Earlier light Browse checkpoints (historical)
 Owner checkpoint for `e1dcca1`: all three GitHub workflows passed, including the dedicated Browse emulator test. After an explicitly approved update, the owner supplied a TCL Browse screenshot and confirmed card/shelf navigation, app launching and Back to Photo Home. These checks pass. Visual refinement/sign-off and the other device scenarios below remain open; screenshot evidence stays private.
 
 The subsequently authorized visual pass softens/shortens the outer panel, shrinks card/banner presentation and slims the shared shelf. Refined build `2052461` passed all three workflows; after owner approval, a new TCL screenshot showed the updated styling with legible text on that photo. It also showed a partially visible app drawing beyond the shelf's right edge. A follow-up clips the horizontal viewport to padding, children and the rounded outline; this correction remains pending TCL validation. After a separately approved update, check initial and fully scrolled positions, first/last-item focus rings, and D-pad reachability without artwork or labels leaking outside the shelf. Confirm bright/dark-photo contrast and existing card/shelf/header navigation separately. Screenshot evidence is not final design or performance approval.

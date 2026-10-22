@@ -100,6 +100,9 @@ public final class HybridActivity extends Activity {
         }
     };
     private FrameLayout stageView;
+    private View infoRibbon, browseDim;
+    private LinearLayout clockPanel;
+    private TextClock clockTime;
     private LinearLayout homeDock;
     private TextView browseEntry;
     private GlassBrowseView browseView;
@@ -133,6 +136,7 @@ public final class HybridActivity extends Activity {
         // One quiet shared glass ribbon replaces three visually heavy panels.
         // Individual information sections have no separate tinted card backing.
         View ribbon = new View(this);
+        infoRibbon = ribbon;
         ribbon.setBackground(round(0xA626343F, 30, 0x38FFFFFF));
         stage.addView(ribbon, pos(px(54), px(44), px(1812), px(160)));
         for (int x : new int[]{405, 1435}) {
@@ -142,6 +146,7 @@ public final class HybridActivity extends Activity {
         }
 
         LinearLayout clock = new LinearLayout(this);
+        clockPanel = clock;
         clock.setOrientation(LinearLayout.VERTICAL);
         clock.setGravity(Gravity.CENTER_VERTICAL);
         clock.setPadding(px(6), px(5), px(9), px(5));
@@ -149,6 +154,7 @@ public final class HybridActivity extends Activity {
         updateGreeting();
         clock.addView(greetingView);
         TextClock time = new TextClock(this);
+        clockTime = time;
         time.setFormat12Hour("h:mm");
         time.setFormat24Hour("HH:mm");
         time.setTimeZone("Asia/Brunei");
@@ -455,26 +461,41 @@ public final class HybridActivity extends Activity {
         showIdle();
         homeDock.setVisibility(View.GONE);
         browseEntry.setVisibility(View.GONE);
+        browseDim = new View(this);
+        browseDim.setBackground(new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,
+                new int[]{0xCA101B2A, 0xA0101B2A, 0x30101B2A}));
+        // Dim the existing photos below the live ribbon, never replace them.
+        stageView.addView(browseDim, 2, new FrameLayout.LayoutParams(-1, -1));
         browseView = new GlassBrowseView(this, scale, this::closeBrowse,
                 this::showTvInputSelector, this::openTvSettings);
-        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(-1, px(768));
-        lp.leftMargin = px(54);
-        lp.rightMargin = px(54);
-        lp.topMargin = px(228);
+        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(-1, -1);
+        lp.topMargin = px(208);
         stageView.addView(browseView, lp);
-        browseView.focusFirstCard();
-        browseView.refreshSavedPlayback();
+        setBrowseRibbon(true);
+        browseView.focusFirstItem();
     }
 
     private void closeBrowse() {
         if (browseView == null) return;
-        browseView.cancelPendingMedia();
         stageView.removeView(browseView);
         browseView = null;
+        stageView.removeView(browseDim);
+        browseDim = null;
+        setBrowseRibbon(false);
         homeDock.setVisibility(View.VISIBLE);
         browseEntry.setVisibility(View.VISIBLE);
         stageView.requestFocus();
         showIdle();
+    }
+
+    private void setBrowseRibbon(boolean browsing) {
+        infoRibbon.setBackground(browsing ? round(0xBD142539, 26, 0x30FFFFFF)
+                : round(0xA626343F, 30, 0x38FFFFFF));
+        infoRibbon.setLayoutParams(pos(px(54), px(44), px(1812), px(browsing ? 144 : 160)));
+        greetingView.setVisibility(browsing ? View.GONE : View.VISIBLE);
+        clockTime.setTextSize(TypedValue.COMPLEX_UNIT_PX, px(browsing ? 64 : 76));
+        clockPanel.setLayoutParams(pos(px(82), px(browsing ? 64 : 52), px(298), -2));
+        updatePrayerPanel();
     }
 
     private int focusedDockIndex() {
@@ -1113,15 +1134,15 @@ public final class HybridActivity extends Activity {
         updatePrayerPanel();
         ui.postDelayed(prayerTick, PRAYER_REFRESH_MS);
         startPhotos();
-        if (browseView != null) browseView.refreshSavedPlayback();
-        View focus = getCurrentFocus();
-        if (focus != null && STREMIO.equals(focus.getTag())) showSelection(STREMIO, "Stremio");
-        else if (focus != null && YOUTUBE.equals(focus.getTag())) showSelection(YOUTUBE, "YouTube");
+        if (browseView == null) {
+            View focus = getCurrentFocus();
+            if (focus != null && STREMIO.equals(focus.getTag())) showSelection(STREMIO, "Stremio");
+            else if (focus != null && YOUTUBE.equals(focus.getTag())) showSelection(YOUTUBE, "YouTube");
+        }
     }
 
     @Override protected void onPause() {
         active = false;
-        if (browseView != null) browseView.cancelPendingMedia();
         generation++;
         ui.removeCallbacksAndMessages(null);
         weather.stop();
@@ -1179,8 +1200,17 @@ public final class HybridActivity extends Activity {
         for (int i = 0; i < 5; i++) {
             prayerTimeViews[i].setText(PrayerSchedule2026.format(d[indices[i]]));
             // The gold highlight only identifies a prayer period that has started.
-            prayerTiles[i].setBackground(i == current
-                    ? round(0xB5936F37, 18, 0xFFE8BD67) : null);
+            Drawable highlight = null;
+            if (i == current) {
+                if (browseView == null) highlight = round(0xB5936F37, 18, 0xFFE8BD67);
+                else {
+                    GradientDrawable underline = new GradientDrawable();
+                    underline.setColor(0xFFE8BD67);
+                    underline.setCornerRadius(px(2));
+                    highlight = new InsetDrawable(underline, px(20), px(66), px(20), 0);
+                }
+            }
+            prayerTiles[i].setBackground(highlight);
         }
 
         int next = -1;
