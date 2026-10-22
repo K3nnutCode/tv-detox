@@ -134,7 +134,12 @@ the shared widget's other package behavior.
 ## Validation status
 
 Local Glass compilation, APK verification, current source guards, deterministic
-focus tests, shell syntax and the existing 92-entry prayer test passed. GitHub
-Android TV checks and all new owner TCL after-measurements are pending at the
-time of this candidate's preparation. Neither phase 2 performance acceptance nor
-phase 3 screenshot acceptance is complete.
+focus tests, shell syntax and the existing 92-entry prayer test passed. All three
+GitHub workflows passed for code/version checkpoint **13b1db2**:
+[Glass build, source guards, navigation and real synthetic fades](https://github.com/K3nnutCode/tv-detox/actions/runs/39770594347),
+[repository builds/tests](https://github.com/K3nnutCode/tv-detox/actions/runs/39770594241),
+and [functional preview checks](https://github.com/K3nnutCode/tv-detox/actions/runs/39770594440).
+The Glass APK ZIP artifact SHA256 is
+`2fc4f9dcb38c93e19f28707ba2cb4551c31c57081d0b21e6cf5861b63ddbca05`.
+Owner TCL after-measurements remain pending. Neither phase 2 performance
+acceptance nor phase 3 screenshot acceptance is complete.

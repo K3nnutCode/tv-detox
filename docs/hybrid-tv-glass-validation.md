@@ -10,6 +10,12 @@ The additional CI photo sample uses only synthetic emulator fixtures. New TCL
 PSS/jank non-regression and visual acceptance remain pending; the earlier
 one-frame navigation capture cannot certify the requested 30 moves.
 
+Automated checkpoint **13b1db2 / version code 111**: all three workflows passed;
+the [Glass Android TV run](https://github.com/K3nnutCode/tv-detox/actions/runs/39770594347)
+includes source isolation guards, deterministic focus scheduling checks, real
+synthetic photo fades at animator scale zero and existing Browse/Inputs/Back
+navigation. This is not a new TCL performance or visual acceptance result.
+
 ## Phase 5 Inputs acceptance and focus refinement
 - Owner evidence: open-selector screenshot reviewed for layout/readability; owner confirmed row navigation, Back dismissal and correct source selection. Home returning to Stable after source use is expected.
 - Glass-only refinement `db7c8ad`, owner-validated on TCL Android TV 11 after an explicitly approved preview update: the open-selector screenshot shows the active HDMI row outline with the underlying Inputs dock tile resting. The owner confirmed Back immediately restores the Inputs dock highlight. This validates the screenshot and restoration behavior; it does not measure animation timing or performance.

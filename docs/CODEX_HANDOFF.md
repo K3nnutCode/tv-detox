@@ -50,6 +50,13 @@ grant or TV update has been performed. UI and weather-file ideas are documented
 as proposals, not silently applied. Existing release/Stable safety boundaries
 remain in effect.
 
+Code/version checkpoint **13b1db2** (Glass **1.1.1 / code 111**) passed all three
+GitHub workflows, including Android TV navigation and two actual synthetic
+photo fades with animator scale zero. [Build and emulator evidence](https://github.com/K3nnutCode/tv-detox/actions/runs/39770594347).
+The [owner-side collector](collect-glass-profile.sh) verifies code 111 by default,
+uses only the approved read/start/counter-reset operations, and automatically
+produces one uploadable private text file. It never force-stops or installs.
+
 1. Read the branch, this handoff, `AGENTS.md`, and PR #10 review notes. Identify any unexpected changes before editing.
 2. **Continue Phase 5 design**, not stable-release engineering. Inputs layout/navigation/source switching and the dock/window-focus refinement have owner acceptance; do not repeat the completed screenshot/Back check without a regression. Physical Input-key entry remains an additional regression scenario if delivered by the TV. Any further preview installation needs explicit owner approval.
 3. Review top ribbon and source-menu polish before design sign-off. A subsequent YouTube screenshot confirmed the compact no-access strip fits without covering faces. The owner chose to leave broad notification-listener access disabled for now; real Stremio/YouTube media-card validation remains **untested**, not failed. Do not enable access or repeatedly request it as a prerequisite for other design work.
