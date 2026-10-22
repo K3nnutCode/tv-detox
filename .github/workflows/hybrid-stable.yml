@@ -220,6 +220,14 @@ jobs:
           grep -Fq 'new HybridWeatherWidget(this, scale, true)' "$SRC"
           grep -Fq 'heroArtwork.setImageBitmap(' "$SRC"
           grep -Fq 'View ribbon = new View(this)' "$SRC"
+          # Phase 5 information ribbon and in-app HDMI/AV chooser glass style.
+          grep -Fq 'ribbon.setBackground(round(0xA626343F, 30, 0x38FFFFFF))' "$SRC"
+          grep -Fq 'TV inputs  ·  HDMI / AV' "$SRC"
+          grep -Fq 'Window window = dialog.getWindow()' "$SRC"
+          grep -Fq 'window.setBackgroundDrawable(round(0xF0202D3A' "$SRC"
+          grep -Fq 'window.setLayout(px(960)' "$SRC"
+          grep -Fq 'sourceStatusColor(source.state)' "$SRC"
+          grep -Fq 'TvContract.buildChannelUriForPassthroughInput(selected.info.getId())' "$SRC"
           # Phase 5: installed-app icons fit a single consistent glass dock.
           grep -Fq 'pm.getApplicationIcon(pkg)' "$SRC"
           grep -Fq 'new LinearLayout.LayoutParams(px(68), px(68))' "$SRC"
