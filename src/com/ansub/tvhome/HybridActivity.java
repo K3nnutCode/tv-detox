@@ -35,6 +35,8 @@ import android.util.Log;
 import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.InputDevice;
+import android.view.Window;
+import android.view.WindowManager;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
@@ -112,9 +114,8 @@ public final class HybridActivity extends Activity {
         stageView = stage;
         stage.setBackgroundColor(0xFF0A1222);
 
-        // Two crossfading frames preserve EACH photo's original aspect ratio.
-        // Landscape uses center-crop, portrait/4:3 gets a blurred fill behind
-        // its fully visible fit-centered image. Never stretch a family photo.
+        // Two crossfading frames fill the entire TV with CENTER_CROP for
+        // every aspect ratio, never stretching or letterboxing family photos.
         photo = new TvWallpaperView(this);
         stage.addView(photo, new FrameLayout.LayoutParams(-1,-1));
 
@@ -129,11 +130,11 @@ public final class HybridActivity extends Activity {
         // One quiet shared glass ribbon replaces three visually heavy panels.
         // Individual information sections have no separate tinted card backing.
         View ribbon = new View(this);
-        ribbon.setBackground(round(0xAC26323F, 30, 0x42FFFFFF));
+        ribbon.setBackground(round(0xA626343F, 30, 0x38FFFFFF));
         stage.addView(ribbon, pos(px(54), px(44), px(1812), px(160)));
         for (int x : new int[]{405, 1435}) {
             View separator = new View(this);
-            separator.setBackgroundColor(0x55FFFFFF);
+            separator.setBackgroundColor(0x38FFFFFF);
             stage.addView(separator, pos(px(x), px(67), px(1), px(111)));
         }
 
@@ -683,10 +684,12 @@ public final class HybridActivity extends Activity {
 
         LinearLayout content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
-        content.setPadding(px(24), px(8), px(24), px(6));
-        TextView hint = text("Green: reported connected  ·  Amber: standby  ·  Grey: disconnected/unknown",
-                21, 0xFFD7DFEC, false);
-        hint.setPadding(0, px(6), 0, px(20));
+        content.setPadding(px(25), px(6), px(25), px(10));
+        // Native TvInputManager observations; these colors never claim that
+        // "unknown" means physically unplugged.
+        TextView hint = text("Green: reported connected  ·  Amber: standby  ·  Grey: disconnected / unknown",
+                18, 0xFFD3DCE8, false);
+        hint.setPadding(0, px(9), 0, px(19));
         content.addView(hint);
 
         final View[] first = new View[1];
@@ -695,23 +698,26 @@ public final class HybridActivity extends Activity {
             LinearLayout row = new LinearLayout(this);
             row.setOrientation(LinearLayout.HORIZONTAL);
             row.setGravity(Gravity.CENTER_VERTICAL);
-            row.setPadding(px(18), px(13), px(18), px(13));
+            row.setPadding(px(22), px(13), px(22), px(13));
             row.setFocusable(true);
             row.setClickable(true);
-            row.setBackground(round(0xEC29354C, 16, 0x55FFFFFF));
+            // Cached themed glass backgrounds: D-pad focus never allocates a
+            // new rounded drawable for every navigation move.
+            final Drawable idleRow = round(0xD72B3A49, 18, 0x3BFFFFFF);
+            final Drawable focusRow = round(0xE63C5267, 18, 0xFFADD7FF);
+            row.setBackground(idleRow);
             if (first[0] == null) first[0] = row;
-            TextView title = text(source.label, 28, Color.WHITE, true);
+            TextView title = text(source.label, 29, Color.WHITE, true);
             title.setSingleLine(true);
             row.addView(title, new LinearLayout.LayoutParams(0,-2,1f));
             TextView status = text("●  " + sourceStatus(source.state), 20,
                     sourceStatusColor(source.state), true);
             status.setGravity(Gravity.RIGHT);
             row.addView(status, new LinearLayout.LayoutParams(-2,-2));
-            row.setOnFocusChangeListener((v,focused) -> row.setBackground(
-                    round(focused ? 0xFF394F79 : 0xEC29354C,16,
-                            focused ? 0xFF95BDFB : 0x55FFFFFF)));
+            row.setOnFocusChangeListener((v, focused) ->
+                    row.setBackground(focused ? focusRow : idleRow));
             row.setOnClickListener(v -> switchTvInput(source, holder[0]));
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1,px(84));
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, px(82));
             lp.bottomMargin=px(8);
             content.addView(row,lp);
         }
@@ -726,7 +732,7 @@ public final class HybridActivity extends Activity {
         scroll.addView(content);
         AlertDialog dialog = new AlertDialog.Builder(this,
                 android.R.style.Theme_Material_Dialog_Alert)
-                .setTitle("Select TV source")
+                .setTitle("TV inputs  ·  HDMI / AV")
                 .setView(scroll)
                 .setNegativeButton("Back", (d,which) -> d.dismiss())
                 .create();
@@ -735,6 +741,17 @@ public final class HybridActivity extends Activity {
             if (first[0] != null) first[0].requestFocus();
         });
         dialog.show();
+        // Style only this in-app source chooser as Glass. Keep Android's
+        // accessible native dialog, BACK behavior and real TV input intents.
+        Window window = dialog.getWindow();
+        if (window != null) {
+            window.setBackgroundDrawable(round(0xF0202D3A, 27, 0x65FFFFFF));
+            window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+            WindowManager.LayoutParams attributes = window.getAttributes();
+            attributes.dimAmount = 0.32f;
+            window.setAttributes(attributes);
+            window.setLayout(px(960), WindowManager.LayoutParams.WRAP_CONTENT);
+        }
     }
 
     private void switchTvInput(SourceEntry selected, AlertDialog dialog) {
